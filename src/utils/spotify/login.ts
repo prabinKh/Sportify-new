@@ -152,7 +152,7 @@ export const getRefreshToken = async () => {
   const refreshToken = localStorage.getItem('refresh_token') as string;
 
   if (!refreshToken) {
-    logInWithSpotify();
+    // Auth is bypassed — do NOT redirect to Spotify login, just return null.
     return null;
   }
 
@@ -173,7 +173,7 @@ export const getRefreshToken = async () => {
   const response = await body.json();
 
   if (!response.access_token) {
-    logInWithSpotify();
+    // Auth is bypassed — do NOT redirect to Spotify login, just return null.
     return null;
   }
 

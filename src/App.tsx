@@ -16,7 +16,7 @@ import { Route, BrowserRouter as Router, Routes, useLocation } from 'react-route
 import { Provider } from 'react-redux';
 import { uiActions } from './store/slices/ui';
 import { PersistGate } from 'redux-persist/integration/react';
-import { authActions, loginToSpotify } from './store/slices/auth';
+import { authActions } from './store/slices/auth';
 import { persistor, store, useAppDispatch, useAppSelector } from './store/store';
 
 // Spotify
@@ -25,7 +25,6 @@ import WebPlayback, { WebPlaybackProps } from './utils/spotify/webPlayback';
 // Pages
 import SearchContainer from './pages/Search/Container';
 import { playerService } from './services/player';
-import { Spinner } from './components/spinner/spinner';
 
 const Home = lazy(() => import('./pages/Home'));
 const Page404 = lazy(() => import('./pages/404'));
@@ -56,21 +55,17 @@ window.addEventListener('resize', () => {
   }
 });
 
+// SpotifyContainer removed — auth is bypassed. WebPlayback is set up directly
+// in RootComponent if a real token is available.
 const SpotifyContainer: FC<{ children: any }> = memo(({ children }) => {
   const dispatch = useAppDispatch();
-
-  const user = useAppSelector((state) => !!state.auth.user);
   const token = useAppSelector((state) => state.auth.token);
-  const requesting = useAppSelector((state) => state.auth.requesting);
 
   useEffect(() => {
+    // Pick up any stored token (from a prior real login) but never redirect to Spotify OAuth.
     const tokenInLocalStorage = getFromLocalStorageWithExpiry('access_token');
-    dispatch(authActions.setToken({ token: tokenInLocalStorage }));
-
     if (tokenInLocalStorage) {
-      dispatch(authActions.fetchUser());
-    } else {
-      dispatch(loginToSpotify());
+      dispatch(authActions.setToken({ token: tokenInLocalStorage }));
     }
   }, [dispatch]);
 
@@ -81,9 +76,6 @@ const SpotifyContainer: FC<{ children: any }> = memo(({ children }) => {
       playerRefreshRateMs: 1000,
       playerName: 'Spotify React Player',
       onPlayerRequestAccessToken: async () => {
-        // Always give the SDK a *fresh* token. Returning the in-memory redux token can hand it
-        // an expired one, which 401s on the SDK's internal `melody/v1/check_scope` call. Prefer
-        // the still-valid stored token; refresh it if it has expired.
         const stored = getFromLocalStorageWithExpiry('access_token') as string | null;
         if (stored) return stored;
         const refreshed = (await getRefreshToken()) as string | null;
@@ -94,10 +86,6 @@ const SpotifyContainer: FC<{ children: any }> = memo(({ children }) => {
         dispatch(authActions.setPlayerLoaded({ playerLoaded: true }));
       },
       onPlayerError: (e) => {
-        // Don't re-login on every player error. Non-Premium accounts emit `account_error`
-        // ("premium required") and failed transfers emit errors on each attempt — calling
-        // loginToSpotify() here caused an endless re-login loop. Just surface it; token
-        // refresh is handled by the axios 401 interceptor + onPlayerRequestAccessToken.
         console.warn('Spotify player error:', e);
       },
       onPlayerDeviceSelected: () => {
@@ -107,15 +95,16 @@ const SpotifyContainer: FC<{ children: any }> = memo(({ children }) => {
     [dispatch, token]
   );
 
-  if (!user) return <Spinner loading={requesting}>{children}</Spinner>;
-
-  return <WebPlayback {...webPlaybackSdkProps}>{children}</WebPlayback>;
+  // If there is a real token, mount the Web Playback SDK; otherwise just render children.
+  if (token) {
+    return <WebPlayback {...webPlaybackSdkProps}>{children}</WebPlayback>;
+  }
+  return <>{children}</>;
 });
 
 const RoutesComponent = memo(() => {
   const location = useLocation();
   const container = useRef<HTMLDivElement>(null);
-  const user = useAppSelector((state) => !!state.auth.user);
 
   useEffect(() => {
     if (container.current) {
@@ -174,21 +163,19 @@ const RoutesComponent = memo(() => {
           ],
         },
         { path: '*', element: <Page404 /> },
-      ].filter((r) => (user ? true : r.public)),
-    [container, user]
+      ],
+    [container]
   );
 
   return (
     <div
       className='Main-section'
       ref={container}
-      style={{
-        height: user ? undefined : `calc(100vh - 50px)`,
-      }}
+      style={{ height: undefined }}
     >
       <div
         style={{
-          minHeight: user ? 'calc(100vh - 230px)' : 'calc(100vh - 100px)',
+          minHeight: 'calc(100vh - 230px)',
           width: '100%',
         }}
       >
