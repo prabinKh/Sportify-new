@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block title %}YouTube Channels{% endblock %}
+
+{% block content %}
+<style>
+    .padding-button {
+        padding: 10px;
+    }
+    .empty-state {
+        text-align: center;
+        margin-top: 50px;
+    }
+    .channel-card {
+        transition: box-shadow 0.3s;
+    }
+    .channel-card:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+</style>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center page-header">
+            <h2><i class="fas fa-list me-2"></i>YouTube Channels</h2>
+            <a href="{% url 'add_channel' %}" class="btn btn-primary action-btn">
+                <i class="fas fa-plus me-1"></i> Add New Channel
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    {% if channels %}
+        {% for channel in channels %}
+        <div class="col-md-6 col-lg-4 padding-button">
+            <div class="card channel-card h-100">
+                <div class="card-body d-flex align-items-center">
+                    {% if channel.profile_picture %}
+                        <img src="{{ channel.profile_picture.url }}" alt="{{ channel.name }}" 
+                             class="rounded-circle me-3" style="width:64px;height:64px;object-fit:cover;">
+                    {% else %}
+                        <div class="rounded-circle me-3 d-flex align-items-center justify-content-center bg-secondary text-white" style="width:64px;height:64px;flex-shrink:0;">
+                            <i class="fas fa-user fa-lg"></i>
+                        </div>
+                    {% endif %}
+                    <div>
+                        <h5 class="card-title mb-1">{{ channel.name }}</h5>
+                        <h6 class="card-subtitle mb-2 text-muted small">{{ channel.channel_id|truncatechars:20 }}</h6>
+                        <p class="card-text small text-muted mb-0">Added: {{ channel.created_at|date:"M d, Y" }}</p>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <a href="{% url 'media_list' channel.id %}" class="btn btn-outline-primary w-100 py-2 px-3">
+                        <i class="fas fa-video me-1"></i> View Media
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="col-12">
+            <div class="empty-state">
+                <i class="fas fa-tv fa-3x text-muted"></i>
+                <h4>No Channels Added Yet</h4>
+                <p class="text-muted">Add your first YouTube channel to get started.</p>
+                <a href="{% url 'add_channel' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i> Add Channel
+                </a>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

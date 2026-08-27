@@ -1,0 +1,167 @@
+{% extends 'base.html' %}
+
+{% block title %}Media for {{ channel.name }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Back Link -->
+    <div class="mb-4">
+        <a href="{% url 'channel_list' %}" class="back-link d-inline-flex align-items-center text-decoration-none text-primary">
+            <i class="fas fa-arrow-left me-2"></i> Back to Channels
+        </a>
+    </div>
+
+    <!-- Page Header -->
+    <div class="page-header text-center mb-5">
+        {% if channel.profile_picture %}
+            <img src="{{ channel.profile_picture.url }}" alt="{{ channel.name }}"
+                 class="rounded-circle mb-3" style="width:80px;height:80px;object-fit:cover;">
+        {% endif %}
+        <h2 class="display-5 fw-bold text-dark animate__fadeInDown">
+            <i class="fas fa-film me-2 text-danger"></i> Media for {{ channel.name }}
+        </h2>
+        <p class="text-muted lead">Channel ID: {{ channel.channel_id }} | Added: {{ channel.created_at|date:"M d, Y" }}</p>
+    </div>
+
+    <!-- Media Cards -->
+    {% if media_files %}
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+            {% for media in media_files %}
+            <div class="col">
+                <div class="card h-100 shadow-sm animate__card">
+                    {% if media.thumbnail %}
+                        <img src="{{ media.thumbnail.url }}" alt="Video thumbnail"
+                             class="card-img-top" style="height:180px;object-fit:cover;">
+                    {% endif %}
+                    <div class="card-body d-flex flex-column">
+                        <h5 class="card-title text-truncate mb-3">
+                            <a href="{{ media.media_url }}" target="_blank" class="text-decoration-none text-dark">
+                                {{ media.media_url|truncatechars:50 }}
+                            </a>
+                        </h5>
+                        <p class="card-text text-muted small mb-3">
+                            Added: {{ media.created_at|date:"M d, Y H:i" }}
+                        </p>
+
+                        <!-- Audio Section -->
+                        {% if media.audio_file %}
+                            <div class="audio-section mt-auto">
+                                <div class="d-flex flex-column">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="text-truncate audio-file-name">
+                                            <i class="fas fa-file-audio me-1"></i> {{ media.audio_file.name|cut:"audio/" }}
+                                        </span>
+                                        <small class="text-muted">{{ media.downloaded_at|date:"M d, Y H:i" }}</small>
+                                    </div>
+                                    <audio controls class="w-100 mb-2">
+                                        <source src="{{ media.audio_file.url }}" type="audio/mpeg">
+                                        Your browser does not support the audio element.
+                                    </audio>
+                                    <a href="{{ media.audio_file.url }}" class="btn btn-sm btn-outline-secondary w-100" download>
+                                        <i class="fas fa-download me-1"></i> Download
+                                    </a>
+                                </div>
+                            </div>
+                        {% else %}
+                            <span class="badge bg-secondary mt-auto">No Audio Available</span>
+                        {% endif %}
+                    </div>
+                    <div class="card-footer bg-transparent border-0">
+                        <a href="{{ media.media_url }}" target="_blank" class="btn btn-outline-primary w-100" title="Open URL">
+                            <i class="fas fa-external-link-alt"></i> View Media
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <!-- Empty State -->
+        <div class="empty-state text-center py-5 animate__fadeIn">
+            <i class="fas fa-film fa-3x text-muted mb-3"></i>
+            <h4 class="fw-bold text-dark">No Media Found</h4>
+            <p class="text-muted">No media URLs have been added for this channel yet.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<!-- Include Animate.css for animations -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
+<style>
+    /* Card Animation */
+    .animate__card {
+        animation: cardFadeIn 0.5s ease-in-out;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .animate__card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15) !important;
+    }
+
+    /* Fade In Animation */
+    .animate__fadeInDown {
+        animation: fadeInDown 0.8s ease-in-out;
+    }
+    .animate__fadeIn {
+        animation: fadeIn 0.8s ease-in-out;
+    }
+
+    /* Keyframes */
+    @keyframes cardFadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    @keyframes fadeInDown {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+
+    /* Card Layout Fixes */
+    .card {
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    .card-body {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 200px; /* Set a minimum height to maintain consistency */
+    }
+    .audio-section {
+        margin-top: auto;
+    }
+    .audio-file-name {
+        max-width: 60%;
+    }
+    .back-link:hover {
+        color: #007bff !important;
+        transform: translateX(-3px);
+        transition: transform 0.2s ease;
+    }
+    audio {
+        outline: none;
+    }
+</style>
+{% endblock %}

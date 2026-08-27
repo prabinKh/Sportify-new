@@ -1,0 +1,446 @@
+{% extends 'base.html' %}
+
+{% block title %}Downloaded Audio Files{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* Font Import */
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+  :root {
+    --primary-color: rgb(140, 44, 44);
+    --secondary-color: #1d3557;
+    --accent-color: #a8dadc;
+    --shadow-color: rgba(0, 0, 0, 0.15);
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--accent-color);
+  }
+
+  /* Audio List Container */
+  .audio-list-container {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 8px var(--shadow-color);
+    padding: 1.5rem;
+  }
+
+  /* Audio Row */
+  .audio-row {
+    background: rgb(45, 129, 214);
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .audio-row:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 12px var(--shadow-color);
+  }
+
+  .audio-name {
+    font-weight: 600;
+    color: var(--secondary-color);
+    cursor: pointer;
+  }
+
+  /* Audio Controls */
+  .audio-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .play-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+  }
+
+  .play-btn:hover {
+    background: var(--accent-color);
+    transform: scale(1.1);
+  }
+
+  .audio-progress {
+    height: 6px;
+    flex-grow: 1;
+    background: rgb(25, 62, 100);
+    border-radius: 3px;
+    overflow: hidden;
+    cursor: pointer;
+  }
+
+  .progress-bar {
+    height: 100%;
+    background: var(--primary-color);
+    width: 0%;
+    transition: width 0.2s ease;
+  }
+
+  .audio-duration {
+    font-size: 0.85rem;
+    color: #6c757d;
+  }
+
+  /* Download Button */
+  .download-btn-list {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 0.5rem 1rem;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+  }
+
+  .download-btn-list:hover {
+    background: var(--accent-color);
+    transform: translateY(-2px);
+  }
+
+  /* URL Link */
+  .url-link {
+    color: var(--primary-color);
+    text-decoration: none;
+  }
+
+  .url-link:hover {
+    color: var(--accent-color);
+    text-decoration: underline;
+  }
+
+  /* Pagination */
+  .pagination .page-item.active .page-link {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+  }
+
+  .pagination .page-link {
+    color: var(--primary-color);
+    border-radius: 6px;
+    margin: 0 0.25rem;
+    transition: background-color 0.2s ease;
+  }
+
+  .pagination .page-link:hover {
+    background: var(--accent-color);
+    color: white;
+  }
+
+  /* Table Header */
+  .table-header {
+    background: embraces;
+    color: white;
+  }
+
+  .table-header th {
+    padding: 1rem;
+  }
+
+  /* Responsive Design */
+  @media (max-width: 767.98px) {
+    .audio-controls {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+
+    .audio-progress {
+      width: 100%;
+    }
+
+    .audio-list-container {
+      padding: 1rem;
+    }
+
+    .play-btn {
+      width: 36px;
+      height: 36px;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card audio-list-container">
+  <div class="card-header d-flex justify-content-between align-items-center" style="background: var(--secondary-color); color: white; border-radius: 12px 12px 0 0; padding: 1rem;">
+    <h2 class="mb-0"><i class="fas fa-headphones me-2"></i>Downloaded Audio Files</h2>
+    <a href="{% url 'channel_list' %}" class="btn btn-primary">
+      <i class="fas fa-list me-1"></i>View Channels
+    </a>
+  </div>
+  <div class="card-body">
+    {% if audio_files %}
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead class="table-header">
+            <tr>
+              <th scope="col"><i class="fas fa-image me-1"></i>Thumb</th>
+              <th scope="col"><i class="fas fa-tag me-1"></i>Name</th>
+              <th scope="col"><i class="fas fa-user-circle me-1"></i>Channel</th>
+              <th scope="col"><i class="fas fa-play-circle me-1"></i>Play</th>
+              <th scope="col"><i class="fas fa-calendar-alt me-1"></i>Downloaded</th>
+              <th scope="col"><i class="fas fa-link me-1"></i>Original URL</th>
+              <th scope="col" class="text-center"><i class="fas fa-download me-1"></i>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for audio in audio_files %}
+              <tr class="audio-row" data-audio-url="{{ audio.audio_file.url }}" data-audio-id="{{ audio.id }}">
+                <td>
+                  {% if audio.thumbnail %}
+                    <img src="{{ audio.thumbnail.url }}" alt="thumb"
+                         style="width:64px;height:36px;object-fit:cover;border-radius:4px;">
+                  {% else %}
+                    <div style="width:64px;height:36px;background:#ddd;border-radius:4px;" class="d-flex align-items-center justify-content-center">
+                      <i class="fas fa-music text-muted small"></i>
+                    </div>
+                  {% endif %}
+                </td>
+                <td>
+                  <span class="audio-name">{{ audio.audio_file.name|cut:"audio/" }}</span>
+                </td>
+                <td>
+                  <div class="d-flex align-items-center">
+                    {% if audio.youtube_channel.profile_picture %}
+                        <img src="{{ audio.youtube_channel.profile_picture.url }}" alt="{{ audio.youtube_channel.name }}"
+                             class="rounded-circle me-2" style="width:32px;height:32px;object-fit:cover;">
+                    {% else %}
+                        <div class="rounded-circle me-2 d-flex align-items-center justify-content-center bg-secondary text-white" style="width:32px;height:32px;flex-shrink:0;">
+                            <i class="fas fa-user-small"></i>
+                        </div>
+                    {% endif %}
+                    <span>{{ audio.youtube_channel.name }}</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="audio-controls">
+                    <button class="play-btn" data-audio-id="{{ audio.id }}">
+                      <i class="fas fa-play" id="play-icon-{{ audio.id }}"></i>
+                    </button>
+                    <div class="audio-progress" id="progress-{{ audio.id }}">
+                      <div class="progress-bar" id="progress-bar-{{ audio.id }}"></div>
+                    </div>
+                    <span class="audio-duration" id="duration-{{ audio.id }}">00:00</span>
+                  </div>
+                </td>
+                <td>{{ audio.downloaded_at|date:"M d, Y H:i" }}</td>
+                <td>
+                  <a href="{{ audio.media_url }}" target="_blank" class="url-link text-truncate d-inline-block" style="max-width: 200px;">
+                    {{ audio.media_url }}
+                  </a>
+                </td>
+                <td class="text-center">
+                  <a href="{{ audio.audio_file.url }}" class="btn btn-sm download-btn-list" download>
+                    <i class="fas fa-download me-1"></i>Download
+                  </a>
+                  <a href="{% url 'media_list' audio.youtube_channel.id %}" class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-film me-1"></i>View Channel
+                  </a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      
+      <!-- Hidden audio elements for playback -->
+      <div style="display: none;" id="audio-players">
+        {% for audio in audio_files %}
+          <audio id="audio-{{ audio.id }}" preload="metadata">
+            <source src="{{ audio.audio_file.url }}" type="audio/mpeg">
+            Your browser does not support the audio element.
+          </audio>
+        {% endfor %}
+      </div>
+      
+      <!-- Pagination -->
+      {% if is_paginated %}
+        <nav aria-label="Page navigation" class="my-4">
+          <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+              <li class="page-item">
+                <a class="page-link" href="?page=1">First</a>
+              </li>
+              <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+              </li>
+            {% else %}
+              <li class="page-item disabled">
+                <span class="page-link">First</span>
+              </li>
+              <li class="page-item disabled">
+                <span class="page-link">Previous</span>
+              </li>
+            {% endif %}
+            
+            {% for i in paginator.page_range %}
+              {% if page_obj.number == i %}
+                <li class="page-item active">
+                  <span class="page-link">{{ i }}</span>
+                </li>
+              {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %}
+                <li class="page-item">
+                  <a class="page-link" href="?page={{ i }}">{{ i }}</a>
+                </li>
+              {% endif %}
+            {% endfor %}
+            
+            {% if page_obj.has_next %}
+              <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+              </li>
+              <li class="page-item">
+                <a class="page-link" href="?page={{ paginator.num_pages }}">Last</a>
+              </li>
+            {% else %}
+              <li class="page-item disabled">
+                <span class="page-link">Next</span>
+              </li>
+              <li class="page-item disabled">
+                <span class="page-link">Last</span>
+              </li>
+            {% endif %}
+          </ul>
+        </nav>
+      {% endif %}
+    {% else %}
+      <div class="text-center py-5">
+        <i class="fas fa-headphones fa-4x mb-3" style="color: var(--primary-color);"></i>
+        <h4 class="mb-3" style="color: var(--secondary-color);">No Audio Files Downloaded Yet</h4>
+        <p class="text-muted mb-4">Add YouTube channels to start downloading audio.</p>
+        <a href="{% url 'add_channel' %}" class="btn btn-primary">
+          <i class="fas fa-plus me-1"></i>Add Channel
+        </a>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  let currentlyPlaying = null;
+  const audioPlayers = {};
+  const progressBars = {};
+  const playButtons = {};
+  const durationElements = {};
+
+  // Initialize audio players
+  document.querySelectorAll('.audio-row').forEach(row => {
+    const audioId = row.dataset.audioId;
+    const audioElement = document.getElementById(`audio-${audioId}`);
+
+    if (audioElement) {
+      audioPlayers[audioId] = audioElement;
+      progressBars[audioId] = document.getElementById(`progress-bar-${audioId}`);
+      playButtons[audioId] = row.querySelector('.play-btn');
+      durationElements[audioId] = document.getElementById(`duration-${audioId}`);
+
+      // Set duration on metadata load
+      audioElement.addEventListener('loadedmetadata', function() {
+        durationElements[audioId].textContent = formatTime(audioElement.duration);
+      });
+
+      // Update progress
+      audioElement.addEventListener('timeupdate', function() {
+        if (audioElement.duration > 0) {
+          const percentage = (audioElement.currentTime / audioElement.duration) * 100;
+          progressBars[audioId].style.width = `${percentage}%`;
+          durationElements[audioId].textContent = `${formatTime(audioElement.currentTime)} / ${formatTime(audioElement.duration)}`;
+        }
+      });
+
+      // Reset on end
+      audioElement.addEventListener('ended', function() {
+        resetAudioPlayer(audioId);
+        currentlyPlaying = null;
+      });
+
+      // Play/pause button
+      playButtons[audioId].addEventListener('click', function() {
+        if (currentlyPlaying && currentlyPlaying !== audioId) {
+          resetAudioPlayer(currentlyPlaying);
+        }
+        togglePlayPause(audioId);
+      });
+
+      // Seek on progress bar click
+      document.getElementById(`progress-${audioId}`).addEventListener('click', function(e) {
+        if (audioElement.duration > 0) {
+          const clickPosition = (e.offsetX / this.offsetWidth);
+          audioElement.currentTime = clickPosition * audioElement.duration;
+        }
+      });
+
+      // Play on name click
+      row.querySelector('.audio-name').addEventListener('click', function() {
+        if (currentlyPlaying && currentlyPlaying !== audioId) {
+          resetAudioPlayer(currentlyPlaying);
+        }
+        togglePlayPause(audioId);
+      });
+    }
+  });
+
+  // Toggle play/pause
+  function togglePlayPause(audioId) {
+    const audioElement = audioPlayers[audioId];
+    const playIcon = document.getElementById(`play-icon-${audioId}`);
+
+    if (audioElement.paused) {
+      audioElement.play()
+        .then(() => {
+          currentlyPlaying = audioId;
+          playIcon.classList.remove('fa-play');
+          playIcon.classList.add('fa-pause');
+        })
+        .catch(error => {
+          console.error('Error playing audio:', error);
+        });
+    } else {
+      audioElement.pause();
+      playIcon.classList.remove('fa-pause');
+      playIcon.classList.add('fa-play');
+      durationElements[audioId].textContent = formatTime(audioElement.duration);
+      currentlyPlaying = null;
+    }
+  }
+
+  // Reset player
+  function resetAudioPlayer(audioId) {
+    const audioElement = audioPlayers[audioId];
+    const playIcon = document.getElementById(`play-icon-${audioId}`);
+
+    if (audioElement) {
+      audioElement.pause();
+      audioElement.currentTime = 0;
+      playIcon.classList.remove('fa-pause');
+      playIcon.classList.add('fa-play');
+      progressBars[audioId].style.width = '0%';
+      durationElements[audioId].textContent = formatTime(audioElement.duration);
+    }
+  }
+
+  // Format time
+  function formatTime(seconds) {
+    if (isNaN(seconds)) return '00:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+});
+</script>
+{% endblock %}
