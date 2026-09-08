@@ -11,28 +11,18 @@ import { authService } from '../../services/auth';
 import type { User } from '../../interfaces/user';
 import { getFromLocalStorageWithExpiry } from '../../utils/localstorage';
 
-// Auth is bypassed — treat the session as always authenticated so the app
-// renders all pages without a login gate. A real Spotify token from localStorage
-// is still picked up by axios if present.
-const STUB_USER: User = {
-  id: 'local',
-  display_name: 'Guest',
-  email: '',
-  images: [],
-  product: 'premium',
-  country: 'US',
-  followers: { href: null, total: 0 },
-  href: '',
-  type: 'user',
-  uri: '',
-  external_urls: { spotify: '' },
-} as unknown as User;
+const defaultUser: User = ({
+  id: 'youtube_user',
+  display_name: 'YouTube Listener',
+  email: 'user@youtube-audio.local',
+  images: [{ url: 'https://cdn-icons-png.flaticon.com/512/1384/1384060.png', height: 300, width: 300 }],
+} as unknown) as User;
 
 const initialState: { token?: string; playerLoaded: boolean; user?: User; requesting: boolean } = {
-  user: STUB_USER,
+  user: defaultUser,
   requesting: false,
   playerLoaded: false,
-  token: getFromLocalStorageWithExpiry('access_token') || undefined,
+  token: getFromLocalStorageWithExpiry('access_token') || 'local_token',
 };
 
 export const loginToSpotify = createAsyncThunk<{ token?: string; loaded: boolean }>(
@@ -50,7 +40,7 @@ export const loginToSpotify = createAsyncThunk<{ token?: string; loaded: boolean
     if (requestUser) thunkAPI.dispatch(fetchUser());
 
     if (!requestedToken) {
-      // Auth is bypassed — do NOT redirect to Spotify login.
+      login.logInWithSpotify();
     } else {
       axios.defaults.headers.common['Authorization'] = 'Bearer ' + requestedToken;
     }

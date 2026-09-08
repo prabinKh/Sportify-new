@@ -30,16 +30,12 @@ def add_channel(request):
     if request.method == 'POST':
         form = YouTubeChannelForm(request.POST)
         if form.is_valid():
-            channel = form.save()
-            fetch_and_save_media_urls(channel)
-            
-            # Schedule background tasks (only once)
-            schedule_recurring_tasks_once()
-            
+            form.save()
             return redirect('channel_list') 
     else:
         form = YouTubeChannelForm()
     return render(request, 'downloader/add_channel.html', {'form': form})
+
 
 @login_required
 def media_list(request, channel_id):

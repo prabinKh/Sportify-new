@@ -39,8 +39,7 @@ const SongDetails: FC<{ isMobile?: boolean }> = memo((props) => {
   const dispatch = useAppDispatch();
 
   const current_track = useAppSelector(
-    (state) => state.spotify.state?.track_window.current_track,
-    (prev, next) => prev?.id === next?.id
+    (state) => state.spotify.state?.track_window?.current_track
   );
   const isLiked = useAppSelector((state) => state.spotify.liked);
   const detailsOpen = useAppSelector((state) => !state.ui.detailsCollapsed);

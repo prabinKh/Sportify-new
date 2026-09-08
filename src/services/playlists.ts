@@ -1,158 +1,117 @@
 import axios from '../axios';
+import { formatLocalPlaylist, formatLocalTrack } from '../utils';
 
-// Interfaces
-import type { Track } from '../interfaces/track';
-import type { Playlist, PlaylistItem } from '../interfaces/playlists';
-import type { Pagination, PaginationQueryParams } from '../interfaces/api';
-
-// Feb 2026 renamed the playlist object's track-count field `tracks` → `items` (both carry
-// `.total`). Backfill `tracks` from `items` so every component that reads `playlist.tracks.total`
-// (grid cards, header, sidebar) keeps working instead of showing "undefined songs".
 const normalizePlaylist = (p: any) => {
   if (p && !p.tracks && p.items) p.tracks = p.items;
   return p;
 };
 
-/**
- * @description Get a playlist owned by a Spotify user.
- * @param playlistId The Spotify ID for the playlist.
- */
 const getPlaylist = async (playlistId: string) => {
-  const response = await axios.get<Playlist>(`/playlists/${playlistId}`);
-  normalizePlaylist(response.data);
-  return response;
+  const response = await axios.get(`/api/playlists/${playlistId}/`);
+  const formatted = formatLocalPlaylist(response.data);
+  return { data: formatted };
 };
 
-interface GetPlaylistItemsParams extends PaginationQueryParams {
-  fields?: string;
-}
-
-/**
- * @description Get full details of the items of a playlist owned by a Spotify user.
- */
 const getPlaylistItems = async (
   playlistId: string,
-  params: GetPlaylistItemsParams = { limit: 50 }
+  _params: any = { limit: 50 }
 ) => {
-  const response = await axios.get<Pagination<PlaylistItem>>(`/playlists/${playlistId}/items`, {
-    params,
-  });
-  // Feb 2026 renamed `/tracks` → `/items` and each entry's `track` field → `item`.
-  // Remap back to the legacy `{ ...entry, track }` shape so the Redux slice and the
-  // track table (which read `item.track`) stay untouched.
-  const items = response.data?.items as unknown as Array<Record<string, any>> | undefined;
-  items?.forEach((entry) => {
-    if (entry && entry.item && !entry.track) entry.track = entry.item;
-  });
-  return response;
+  const response = await axios.get(`/api/playlists/${playlistId}/`);
+  const tracks = (response.data?.tracks || []).map(formatLocalTrack);
+  const items = tracks.map((t: any) => ({ track: t, added_at: t.downloaded_at }));
+  return { data: { items, total: items.length } };
 };
 
-/**
- * @description Get a list of the playlists owned or followed by the current Spotify user.
- */
-const getMyPlaylists = async (params: PaginationQueryParams = {}) => {
-  const response = await axios.get<Pagination<Playlist>>('/me/playlists', { params });
-  response.data?.items?.forEach(normalizePlaylist);
-  return response;
+const getMyPlaylists = async (_params: any = {}) => {
+  const response = await axios.get('/api/playlists/');
+  const items = (response.data || []).map(formatLocalPlaylist);
+  return { data: { items, total: items.length } };
 };
 
-interface GetFeaturedPlaylistsParams extends PaginationQueryParams {
-  locale?: string;
-}
-
-/**
- * @description Get a list of Spotify featured playlists (shown, for example, on a Spotify player's 'Browse' tab).
- */
-const getFeaturedPlaylists = async (_params: GetFeaturedPlaylistsParams = {}) => {
-  // `/browse/featured-playlists` was removed (Nov 2024 / Feb 2026) with no replacement.
-  // Return empty so the Home "Featured playlists" row hides cleanly (the component renders
-  // null on an empty list); the user's own playlists still appear via their dedicated row.
-  const empty = {
-    items: [],
-    total: 0,
-    limit: 0,
-    offset: 0,
-    next: null,
-    previous: null,
-  } as unknown as Pagination<Playlist>;
-  return { data: { playlists: empty } };
+const getFeaturedPlaylists = async (_params: any = {}) => {
+  const response = await axios.get('/api/playlists/');
+  let items = (response.data || []).map(formatLocalPlaylist);
+  if (items.length === 0) {
+    const tracksRes = await axios.get('/api/tracks/');
+    const tracks = (tracksRes.data || []).map(formatLocalTrack);
+    if (tracks.length > 0) {
+      items = [
+        {
+          id: 'featured-top-hits',
+          name: 'Top YouTube Audio Hits',
+          description: 'The most popular downloaded tracks',
+          images: tracks[0]?.album?.images || [{ url: '' }],
+          tracks: { total: tracks.length, items: tracks.map((t: any) => ({ track: t })) },
+          owner: { display_name: 'YouTube Mix', id: 'youtube_user' },
+          collaborative: false,
+          public: true,
+        },
+        {
+          id: 'featured-daily-mix',
+          name: 'Daily Mix',
+          description: 'Fresh tracks tailored for you',
+          images: tracks[1]?.album?.images || tracks[0]?.album?.images || [{ url: '' }],
+          tracks: { total: tracks.length, items: tracks.map((t: any) => ({ track: t })) },
+          owner: { display_name: 'YouTube Mix', id: 'youtube_user' },
+          collaborative: false,
+          public: true,
+        },
+      ];
+    }
+  }
+  return { data: { playlists: { items, total: items.length } } };
 };
 
-/**
- * @description Add one or more items to a user's playlist.
- */
-const addPlaylistItems = async (playlistId: string, uris: string[], snapshot_id: string) => {
-  return axios.post(`/playlists/${playlistId}/items`, {
-    uris,
-    snapshot_id,
-  });
+const extractTrackId = (raw: string): string => {
+  if (!raw) return '';
+  const str = String(raw);
+  if (str.startsWith('spotify:track:')) {
+    return str.replace('spotify:track:', '');
+  }
+  const clean = str.replace(/\/$/, '');
+  const parts = clean.split('/');
+  return parts[parts.length - 1] || str;
 };
 
-/**
- * @description Remove one or more items from a user's playlist.
- */
-const removePlaylistItems = async (playlistId: string, uris: string[], snapshot_id: string) => {
-  return axios.delete(`/playlists/${playlistId}/items`, {
-    data: {
-      items: uris.map((uri) => ({ uri })),
-      snapshot_id,
-    },
-  });
+const addPlaylistItems = async (playlistId: string, uris: string[], _snapshotId?: string) => {
+  const trackId = extractTrackId(uris[0]);
+  return axios.post(`/api/playlists/${playlistId}/tracks/`, { track_id: trackId });
 };
 
-/**
- * @description Either reorder or replace items in a playlist depending on the request's parameters. To reorder items, include range_start, insert_before, range_length and snapshot_id in the request's body. To replace items, include uris as either a query parameter or in the request's body. Replacing items in a playlist will overwrite its existing items. This operation can be used for replacing or clearing items in a playlist.
- */
+const removePlaylistItems = async (playlistId: string, uris: string[], _snapshotId?: string) => {
+  const trackId = extractTrackId(uris[0]);
+  return axios.delete(`/api/playlists/${playlistId}/tracks/`, { data: { track_id: trackId } });
+};
+
 const reorderPlaylistItems = async (
-  playlistId: string,
-  uris: string[],
-  rangeStart: number,
-  insertBefore: number,
-  rangeLength: number,
-  snapshotId: string
+  _playlistId: string,
+  _uris: string[],
+  _rangeStart: number,
+  _insertBefore: number,
+  _rangeLength: number,
+  _snapshotId: string
 ) => {
-  return axios.put(
-    `/playlists/${playlistId}/items`,
-    {
-      range_start: rangeStart,
-      insert_before: insertBefore,
-      range_length: rangeLength,
-      snapshot_id: snapshotId,
-    },
-    { params: { uris } }
-  );
+  return { data: {} };
 };
 
-/**
- * @description Change a playlist's name and public/private state. (The user must, of course, own the playlist.)
- */
 const changePlaylistDetails = async (
   playlistId: string,
-  data: {
-    name?: string;
-    public?: boolean;
-    collaborative?: boolean;
-    description?: string;
-  }
+  data: any
 ) => {
-  return axios.put(`/playlists/${playlistId}`, data);
+  const res = await axios.patch(`/api/playlists/${playlistId}/`, data);
+  return { data: formatLocalPlaylist(res.data) };
 };
 
-/**
- * @description Replace the image used to represent a specific playlist.
- * @body Base64 encoded JPEG image data, maximum payload size is 256 KB.
- */
-const changePlaylistImage = async (playlistId: string, image: string, content: string) => {
-  return axios.put(`/playlists/${playlistId}/images`, image, {
-    headers: { 'Content-Type': content },
-  });
+const deletePlaylist = async (playlistId: string) => {
+  return axios.delete(`/api/playlists/${playlistId}/`);
 };
 
-/**
- * @description Create a playlist for a Spotify user. (The playlist will be empty until you add tracks.) Each user is generally limited to a maximum of 11000 playlists.
- */
+const changePlaylistImage = async (_playlistId: string, _image: string, _content: string) => {
+  return { data: {} };
+};
+
 const createPlaylist = async (
-  userId: string,
+  _userId: string,
   data: {
     name: string;
     public?: boolean;
@@ -160,43 +119,24 @@ const createPlaylist = async (
     description?: string;
   }
 ) => {
-  // Feb 2026 removed `POST /users/{id}/playlists`; only the current user's `/me/playlists` works.
-  return axios.post<Playlist>(`/me/playlists`, data);
-};
-
-/**
- * @description Recommendations are generated based on the available information for a given seed entity and matched against similar artists and tracks. If there is sufficient information about the provided seeds, a list of tracks will be returned together with pool size details.
- */
-const getRecommendations = async (params: {
-  seed_artists?: string;
-  seed_genres?: string;
-  limit?: number;
-  seed_tracks?: string;
-}) => {
-  // `/recommendations` was removed (Nov 2024 / Feb 2026) with no public replacement.
-  // Repurpose with the user's short-term top tracks so the "recommended" row stays
-  // populated. Seeds are ignored; the response is reshaped to the legacy `{ tracks }`.
-  const response = await axios.get<Pagination<Track>>('/me/top/tracks', {
-    params: { limit: params.limit ?? 25, time_range: 'short_term' },
+  const res = await axios.post('/api/playlists/', {
+    name: data.name || 'New Playlist',
+    description: data.description || '',
   });
-  return { ...response, data: { tracks: response.data.items } };
+  return { data: formatLocalPlaylist(res.data) };
 };
 
-/**
- * @description Get a list of the playlists owned or followed by a Spotify user.
- */
+const getRecommendations = async (_params: any) => {
+  const response = await axios.get('/api/tracks/');
+  const tracks = (response.data || []).map(formatLocalTrack);
+  return { data: { tracks } };
+};
+
 const getPlaylists = async (
   _userId: string,
-  params: {
-    limit?: number;
-    offset?: number;
-  }
+  _params: any = {}
 ) => {
-  // Feb 2026 removed `/users/{id}/playlists` (other users). Only the current user's
-  // playlists are available now, so this returns `/me/playlists` regardless of `_userId`.
-  const response = await axios.get<Pagination<Playlist>>(`/me/playlists`, { params });
-  response.data?.items?.forEach(normalizePlaylist);
-  return response;
+  return getMyPlaylists();
 };
 
 export const playlistService = {
@@ -204,6 +144,7 @@ export const playlistService = {
   getPlaylists,
   getMyPlaylists,
   createPlaylist,
+  deletePlaylist,
   getPlaylistItems,
   addPlaylistItems,
   getRecommendations,
@@ -213,3 +154,5 @@ export const playlistService = {
   reorderPlaylistItems,
   changePlaylistDetails,
 };
+
+

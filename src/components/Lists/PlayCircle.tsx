@@ -17,7 +17,7 @@ interface PlayCircleProps {
 export const PlayCircle: FC<PlayCircleProps> = ({ size = 20, big, isCurrent, context, image }) => {
   const dispatch = useAppDispatch();
   const user = useAppSelector((state) => !!state.auth.user);
-  const paused = useAppSelector((state) => state.spotify.state?.paused);
+  const paused = useAppSelector((state) => (state.spotify.state ? state.spotify.state.paused : true));
 
   const isPlaying = isCurrent && !paused;
 

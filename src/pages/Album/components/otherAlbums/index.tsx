@@ -15,11 +15,14 @@ export const OtherAlbums: FC = memo(() => {
   const otherAlbums = useAppSelector((state) => state.album.otherAlbums);
 
   const items = useMemo(() => {
+    const list = otherAlbums || [];
     if (current) {
-      return otherAlbums.filter((album) => album.id !== current.id);
+      return list.filter((album) => album && album.id !== current.id);
     }
-    return otherAlbums;
+    return list;
   }, [current, otherAlbums]);
 
-  return <GridItemList title={`${t('More by')} ${artist?.name}`} items={items} />;
+  if (!items || items.length === 0) return null;
+
+  return <GridItemList title={`${t('More by')} ${artist?.name || 'Artist'}`} items={items} />;
 });

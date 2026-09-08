@@ -4,8 +4,9 @@ import { FC, memo, RefObject, useEffect } from 'react';
 // Components
 import HomePageContainer from './container';
 
-// Interfaces
+// Store & Slices
 import { homeActions } from '../../store/slices/home';
+import { yourLibraryActions } from '../../store/slices/yourLibrary';
 import { useAppDispatch, useAppSelector } from '../../store/store';
 
 interface HomeProps {
@@ -25,6 +26,8 @@ const Home: FC<HomeProps> = memo((props) => {
       dispatch(homeActions.fetchRecentlyPlayed());
       dispatch(homeActions.fetchPodcastEpisodes());
       dispatch(homeActions.fetchMoreLikeArtists());
+      dispatch(yourLibraryActions.fetchMyPlaylists());
+      dispatch(yourLibraryActions.fetchMyArtists());
     }
     dispatch(homeActions.fetchRanking());
     dispatch(homeActions.fetchTrending());

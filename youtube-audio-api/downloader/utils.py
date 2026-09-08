@@ -18,8 +18,8 @@ from django.utils.text import slugify
 
 from .models import YouTubeChannel, MediaFile
 
-MIN_DURATION_SECONDS = 2 * 60   # skip audio shorter than 2 minutes
-MAX_DURATION_SECONDS = 10 * 60  # skip audio longer than 10 minutes
+MIN_DURATION_SECONDS = 2 * 60   # Skip audio shorter than 2 minutes (120s)
+MAX_DURATION_SECONDS = 10 * 60  # Skip audio longer than 10 minutes (600s)
 
 RSS_NS = {
     "atom": "http://www.w3.org/2005/Atom",
@@ -144,27 +144,68 @@ def _download_channel_avatar(channel, root=None):
         print(f"[ERROR] Avatar download failed for {channel.name}: {e}")
 
 
-def fetch_and_save_media_urls(youtube_channel):
-    """Initial fetch of media URLs right after a channel is added."""
+def _extract_all_video_urls_via_ytdlp(channel_id):
+    """Fetch all video watch URLs for a channel using yt-dlp, filtering by duration (>120s and <600s)."""
+    command_prefix = get_ytdlp_command()
+    url = f"https://www.youtube.com/channel/{channel_id}/videos"
+    cmd = command_prefix + ["--flat-playlist", "--dump-single-json", url]
     try:
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True, encoding="utf-8")
+        info = json.loads(result.stdout or "{}")
+        entries = info.get("entries", [])
+        urls = []
+        for entry in entries:
+            video_id = entry.get("id")
+            duration = entry.get("duration")
+            # Filter to >= 2 minutes (120s) and <= 10 minutes (600s)
+            if duration is not None:
+                if duration < 120 or duration > 600:
+                    continue
+            if video_id:
+                urls.append(f"https://www.youtube.com/watch?v={video_id}")
+        return urls
+    except Exception as e:
+        print(f"[ERROR] yt-dlp channel video list fetch failed for {channel_id}: {e}")
+        return []
+
+
+
+def fetch_and_save_media_urls(youtube_channel):
+    """Initial fetch of media URLs right after a channel is added using yt-dlp."""
+    try:
+        # First download avatar if possible via feed
         root, feed_hash = _fetch_channel_feed(youtube_channel)
-        if root is None:
-            return
-        youtube_channel.feed_hash = feed_hash
-        youtube_channel.save(update_fields=["feed_hash"])
+        if root is not None:
+            youtube_channel.feed_hash = feed_hash
+            youtube_channel.save(update_fields=["feed_hash"])
+            _download_channel_avatar(youtube_channel, root)
+        else:
+            _download_channel_avatar(youtube_channel, None)
 
-        _download_channel_avatar(youtube_channel, root)
+        print(f"[FETCH] Querying all videos for channel '{youtube_channel.name}' ({youtube_channel.channel_id})...")
+        urls = _extract_all_video_urls_via_ytdlp(youtube_channel.channel_id)
+        if not urls and root is not None:
+            print("[FETCH] Falling back to RSS feed urls.")
+            urls = _extract_video_urls(root)
 
-        for url in _extract_video_urls(root):
+        print(f"[FETCH] Found {len(urls)} video URLs for channel '{youtube_channel.name}'")
+        for url in urls:
             media, created = MediaFile.objects.get_or_create(
                 media_url=url,
                 defaults={"youtube_channel": youtube_channel},
             )
             if created:
                 print(f"[NEW] Media URL saved: {url}")
-                download_new_audio(str(media.id))
+                queue_media_download(media.id)
     except Exception as e:
-        print(f"[ERROR] Error fetching RSS: {e}")
+        print(f"[ERROR] Error fetching channel videos: {e}")
+
+
+def fetch_all_historical_channels():
+    """Ensure all channels in the DB have all their historical URLs fetched."""
+    for channel in YouTubeChannel.objects.all():
+        fetch_and_save_media_urls(channel)
+
 
 
 @background(schedule=5)
@@ -200,7 +241,7 @@ def check_and_update_media_urls():
                 )
                 print(f"[NEW] Video uploaded on '{channel.name}': {url}")
                 # Execute the download function ONLY for this new video.
-                download_new_audio(str(media.id))
+                queue_media_download(media.id)
                 existing_urls.add(url)
 
         except Exception as e:
@@ -224,12 +265,16 @@ def _process_media(media):
     # Fetch metadata once — duration + thumbnail URL in one call.
     duration = None
     thumb_url = None
+    title = ''
+    video_id = ''
     try:
         cmd = command_prefix + ["--skip-download", "--dump-single-json", "--no-playlist", normalized_url]
         result = subprocess.run(cmd, check=True, capture_output=True, text=True)
         info = json.loads(result.stdout or "{}")
         duration = info.get("duration")
         thumb_url = info.get("thumbnail")
+        title = info.get("title", '')
+        video_id = info.get("id", '')
         if not thumb_url:
             for t in info.get("thumbnails", []):
                 if t.get("url"):
@@ -239,7 +284,12 @@ def _process_media(media):
         print(f"[ERROR] Metadata fetch failed for {normalized_url}: {e}")
 
     media.duration_seconds = int(duration) if duration else None
+    if title:
+        media.title = title
+    if video_id:
+        media.video_id = video_id
     media.save()
+
 
     # Save the video thumbnail if we don't have one yet.
     if thumb_url and not media.thumbnail:
@@ -302,6 +352,36 @@ def _process_media(media):
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+from concurrent.futures import ThreadPoolExecutor
+_download_executor = ThreadPoolExecutor(max_workers=3)
+
+def _async_download_worker(media_id):
+    from django.db import connection
+    try:
+        media = MediaFile.objects.filter(id=int(media_id)).first()
+        if media and not media.audio_file:
+            _process_media(media)
+    except Exception as e:
+        print(f"[ERROR] Async thread download error for media {media_id}: {e}")
+    finally:
+        connection.close()
+
+def queue_media_download(media_id):
+    """Queue media download in background thread pool immediately."""
+    _download_executor.submit(_async_download_worker, media_id)
+    try:
+        download_new_audio(str(media_id))
+    except Exception:
+        pass
+
+def process_all_pending_audio():
+    """Trigger downloads for all MediaFiles without audio."""
+    pending = MediaFile.objects.filter(audio_file='')
+    print(f"[QUEUE] Queuing {pending.count()} pending media files for download...")
+    for media in pending:
+        _download_executor.submit(_async_download_worker, media.id)
+
+
 @background(schedule=1)
 def download_new_audio(media_id):
     """Triggered only when a brand-new video URL was detected."""
@@ -321,4 +401,5 @@ def download_audio():
     """Hourly safety net: retry anything that was never evaluated."""
     pending = MediaFile.objects.filter(audio_file='', duration_seconds__isnull=True)
     for media in pending:
-        download_new_audio(str(media.id))
+        queue_media_download(media.id)
+

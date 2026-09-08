@@ -73,31 +73,66 @@ const catalogApi = api.injectEndpoints({
           const user = (getState() as RootState).auth.user;
 
           const [albumRes, tracksRes, followingRes] = await Promise.all([
-            albumsService.fetchAlbum(id),
-            albumsService.fetchAlbumTracks(id, { limit: 50 }),
+            albumsService.fetchAlbum(id).catch(() => ({
+              data: {
+                id,
+                name: 'Downloaded Audio Album',
+                images: [{ url: '' }],
+                artists: [{ id: '1', name: 'Artist' }],
+                tracks: { items: [], total: 0 },
+              } as any,
+            })),
+            albumsService.fetchAlbumTracks(id, { limit: 50 }).catch(() => ({
+              data: { items: [] as Track[], total: 0 },
+            })),
             user
-              ? userService.checkFollowingArtists([id])
+              ? userService.checkFollowingArtists([id]).catch(() => ({ data: [false] as boolean[] }))
               : Promise.resolve({ data: [false] as boolean[] }),
           ]);
 
-          const album = albumRes.data as AlbumFullObject;
-          const items = (tracksRes.data.items as Track[]) ?? [];
+          const album = (albumRes?.data || {
+            id,
+            name: 'Downloaded Audio Album',
+            images: [{ url: '' }],
+            artists: [{ id: '1', name: 'Artist' }],
+            tracks: { items: [], total: 0 },
+          }) as AlbumFullObject;
+
+          if (!album.images || !album.images.length) {
+            album.images = [{ url: '' }];
+          }
+          if (!album.artists || !album.artists.length) {
+            album.artists = [{ id: '1', name: 'Artist' }];
+          }
+
+          const items = (tracksRes?.data?.items as Track[]) ?? [];
+          const artistId = album.artists[0]?.id || '1';
 
           const [savedRes, artistRes, otherRes] = await Promise.all([
-            userService.checkSavedTracks(items.map((t) => t.id)).catch(() => ({ data: [] as boolean[] })),
-            artistService.fetchArtist(album.artists[0].id),
-            artistService.fetchArtistAlbums(album.artists[0].id, { limit: 10 }),
+            items.length
+              ? userService.checkSavedTracks(items.map((t) => t.id)).catch(() => ({ data: [] as boolean[] }))
+              : Promise.resolve({ data: [] as boolean[] }),
+            artistId
+              ? artistService.fetchArtist(artistId).catch(() => ({
+                  data: (album.artists[0] as any) || { id: artistId, name: 'Artist', images: [{ url: '' }] },
+                }))
+              : Promise.resolve({ data: (album.artists[0] as any) || { id: '1', name: 'Artist', images: [{ url: '' }] } }),
+            artistId
+              ? artistService.fetchArtistAlbums(artistId, { limit: 10 }).catch(() => ({
+                  data: { items: [] as Album[] },
+                }))
+              : Promise.resolve({ data: { items: [] as Album[] } }),
           ]);
 
-          const saved = savedRes.data as boolean[];
+          const saved = (savedRes?.data as boolean[]) ?? [];
 
           return {
             data: {
               album,
-              tracks: items.map((t, i) => ({ ...t, saved: saved[i] })),
-              following: (followingRes.data as boolean[])[0],
-              artist: artistRes.data,
-              otherAlbums: (otherRes.data.items as Album[]) ?? [],
+              tracks: items.map((t, i) => ({ ...t, saved: saved[i] ?? false })),
+              following: (followingRes?.data as boolean[])?.[0] ?? false,
+              artist: artistRes?.data ?? (album.artists[0] as any) ?? { id: '1', name: 'Artist' },
+              otherAlbums: (otherRes?.data?.items as Album[]) ?? [],
             } satisfies AlbumPageData,
           };
         });

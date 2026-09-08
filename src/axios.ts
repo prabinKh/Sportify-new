@@ -3,7 +3,7 @@ import { getRefreshToken } from './utils/spotify/login';
 import { getFromLocalStorageWithExpiry } from './utils/localstorage';
 import { cacheGet, cacheSet } from './utils/cache';
 
-const path = 'https://api.spotify.com/v1' as const;
+const path = 'http://127.0.0.1:8000' as const;
 
 const access_token = getFromLocalStorageWithExpiry('access_token') as string;
 

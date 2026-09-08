@@ -32,22 +32,15 @@ const SkipBackButton = memo(() => {
 });
 
 const PlayButton = memo(() => {
-  const isPlaying = useAppSelector((state) => !state.spotify.state?.paused);
-  const disabled = useAppSelector(
-    (state) =>
-      !state.spotify.state ||
-      (state.spotify.state?.disallows.pausing && state.spotify.state?.disallows.resuming)
-  );
+  const isPlaying = useAppSelector((state) => (state.spotify.state ? !state.spotify.state.paused : false));
 
   return (
     <button
-      className={`player-pause-button ${disabled ? 'disabled' : ''}`}
+      className='player-pause-button'
       onClick={() => {
-        if (!disabled) {
-          return isPlaying
-            ? playerService.pausePlayback().then()
-            : playerService.startPlayback().then();
-        }
+        return isPlaying
+          ? playerService.pausePlayback().then()
+          : playerService.startPlayback().then();
       }}
     >
       {!isPlaying ? <Play /> : <Pause />}

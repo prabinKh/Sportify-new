@@ -62,14 +62,15 @@ interface SongViewProps extends DefaultProps {
 }
 
 const getArtists = (artists: Track['artists']) => {
-  return artists.slice(0, 3).map((a, i) => (
+  const safeArtists = (artists || []).slice(0, 3);
+  return safeArtists.map((a, i) => (
     <span key={a.id}>
       <ArtistActionsWrapper artist={a} trigger={['contextMenu']}>
         <Link key={a.id} to={`/artist/${a.id}`} style={{ cursor: 'pointer' }}>
           {a.name}
         </Link>
       </ArtistActionsWrapper>
-      {i < artists.slice(0, 3).length - 1 ? ', ' : ''}
+      {i < safeArtists.length - 1 ? ', ' : ''}
     </span>
   ));
 };
@@ -292,7 +293,7 @@ const Index = ({
           <span style={{ margin: '0 auto' }}>{index + 1}</span>
         )}
       </p>
-      <button className='song-details-play' onClick={onClick}>
+      <button className='song-details-play' onClick={(e) => { e.stopPropagation(); onClick(); }}>
         {isCurrent && isPlaying ? <Pause /> : <Play />}
       </button>
     </div>
@@ -306,13 +307,16 @@ export const SongView = (props: SongViewProps) => {
   const isMobile = useIsMobile();
   const dispatch = useAppDispatch();
   const user = useAppSelector((state) => !!state.auth.user);
-  const isPlaying = useAppSelector((state) => !!state.spotify.state?.paused);
+  const isPlaying = useAppSelector((state) => (state.spotify.state ? !state.spotify.state.paused : false));
   const currentSong = useAppSelector(
     (state) => state.spotify.state?.track_window.current_track,
     (a, b) => a?.id === b?.id
   );
 
-  const isCurrent = useMemo(() => currentSong?.uri === song.uri, [currentSong, song]);
+  const isCurrent = useMemo(
+    () => (currentSong ? String(currentSong.id) === String(song.id) || currentSong.uri === song.uri : false),
+    [currentSong, song]
+  );
 
   const selectedView = isMobile ? 'LIST' : view;
 
@@ -320,7 +324,7 @@ export const SongView = (props: SongViewProps) => {
 
   const onClick = useCallback(() => {
     if (!user) {
-      return dispatch(uiActions.openLoginModal(song.album.images[0].url));
+      return dispatch(uiActions.openLoginModal(song.album?.images?.[0]?.url || ''));
     }
     if (isCurrent && isPlaying) {
       return playerService.pausePlayback();
@@ -328,8 +332,8 @@ export const SongView = (props: SongViewProps) => {
     if (isCurrent) {
       return playerService.startPlayback();
     }
-    return playerService.startPlayback(context);
-  }, [user, isCurrent, isPlaying, context, dispatch, song.album?.images]);
+    return playerService.startPlayback({ track: song, ...context });
+  }, [user, isCurrent, isPlaying, context, dispatch, song]);
 
   return (
     <TrackActionsWrapper
@@ -343,9 +347,9 @@ export const SongView = (props: SongViewProps) => {
       saved={props.onToggleLike ? props.saved : undefined}
       onSavedToggle={props.onToggleLike ? props.onToggleLike : undefined}
     >
-      <button
-        onClick={isMobile ? onClick : undefined}
-        onDoubleClick={!isMobile ? onClick : undefined}
+      <div
+        onClick={onClick}
+        style={{ cursor: 'pointer' }}
         className={`flex flex-col w-full hover:bg-spotify-gray-lightest items-center ${
           size === 'normal' ? 'p-2' : ''
         } rounded-lg ${props.activable ? 'activable-song' : ''}`}
@@ -367,7 +371,7 @@ export const SongView = (props: SongViewProps) => {
             ))}
           </div>
         </div>
-      </button>
+      </div>
     </TrackActionsWrapper>
   );
 };

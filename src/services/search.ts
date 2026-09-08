@@ -1,58 +1,42 @@
 import axios from '../axios';
+import { formatLocalArtist, formatLocalPlaylist, formatLocalTrack } from '../utils';
 
-import type { Track } from '../interfaces/track';
-import type { Album } from '../interfaces/albums';
-import type { Artist } from '../interfaces/artist';
-import type { Pagination } from '../interfaces/api';
-import type { Playlist } from '../interfaces/playlists';
-import type { Episode } from '../interfaces/episode';
-
-// Feb 2026 reduced `/search`'s max `limit` from 50 to 10. Clamp here so every caller is safe
-// without having to audit each call site; pagination via `offset` still fetches more.
-const SEARCH_MAX_LIMIT = 10;
-const clampLimit = (limit?: number) => Math.min(limit ?? SEARCH_MAX_LIMIT, SEARCH_MAX_LIMIT);
-
-/**
- * @description Get Spotify catalog information about albums, artists, playlists, tracks, shows, episodes or audiobooks that match a keyword string. Audiobooks are only available within the US, UK, Canada, Ireland, New Zealand and Australia markets.
- */
-export const querySearch = (params: {
-  /**
-   * @description Search query keywords and optional field filters and operators.
-   */
+export const querySearch = async (params: {
   q: string;
-  /**
-   * @description A comma-separated list of item types to search across.
-   */
-  type: string;
-  /**
-   * @description An ISO 3166-1 alpha-2 country code or the string from_token. Provide this parameter if you want to apply Track Relinking.
-   */
-  market?: string;
-  /**
-   * @description The maximum number of items to return. Default: 20. Minimum: 1. Maximum: 50.
-   */
-  limit?: number;
-  /**
-   * @description The index of the first item to return. Default: 0 (the first object). Use with limit to get the next set of items.
-   */
-  offset?: number;
-}) =>
-  axios.get<{
-    albums: Pagination<Album>;
-    tracks: Pagination<Track>;
-    artists: Pagination<Artist>;
-    playlists: Pagination<Playlist>;
-  }>(`/search`, { params: { ...params, limit: clampLimit(params.limit) } });
-
-/**
- * @description Search podcast episodes by keyword (`GET /search?type=episode`).
- */
-export const searchEpisodes = (params: {
-  q: string;
+  type?: string;
   limit?: number;
   offset?: number;
-  market?: string;
-}) =>
-  axios.get<{ episodes: Pagination<Episode> }>('/search', {
-    params: { ...params, type: 'episode', limit: clampLimit(params.limit) },
-  });
+}) => {
+  const q = params.q || '';
+  const [tracksRes, artistsRes, playlistsRes] = await Promise.all([
+    axios.get(`/api/tracks/search/`, { params: { q } }).catch(() => ({ data: [] })),
+    axios.get('/api/artists/').catch(() => ({ data: [] })),
+    axios.get('/api/playlists/').catch(() => ({ data: [] })),
+  ]);
+
+  const rawTracks = tracksRes.data || [];
+  const rawArtists = artistsRes.data || [];
+  const rawPlaylists = playlistsRes.data || [];
+
+  const tracks = rawTracks.map(formatLocalTrack);
+  const artists = rawArtists
+    .filter((a: any) => !q || a.name.toLowerCase().includes(q.toLowerCase()))
+    .map(formatLocalArtist);
+  const playlists = rawPlaylists
+    .filter((p: any) => !q || p.name.toLowerCase().includes(q.toLowerCase()))
+    .map(formatLocalPlaylist);
+
+  return {
+    data: {
+      tracks: { items: tracks, total: tracks.length },
+      artists: { items: artists, total: artists.length },
+      playlists: { items: playlists, total: playlists.length },
+      albums: { items: [], total: 0 },
+    },
+  };
+};
+
+export const searchEpisodes = async (_params: any) => {
+  return { data: { episodes: { items: [], total: 0 } } };
+};
+

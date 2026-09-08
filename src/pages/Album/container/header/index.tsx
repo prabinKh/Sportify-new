@@ -103,7 +103,7 @@ export const AlbumHeader: FC<AlbumHeaderProps> = ({ container, sectionContainer,
         <Row gutter={[24, 24]} align={'middle'}>
           <Col xs={24} sm={6} lg={5}>
             <div>
-              <img src={album?.images[0].url} alt={album!.name} className='playlist-img' />
+              <img src={album?.images?.[0]?.url || ''} alt={album?.name || 'Album'} className='playlist-img' />
             </div>
           </Col>
           <Col xs={24} sm={18} lg={19}>
@@ -120,7 +120,7 @@ export const AlbumHeader: FC<AlbumHeaderProps> = ({ container, sectionContainer,
                         id='user-avatar'
                         alt='User Avatar'
                         className='playlist-avatar'
-                        src={artist.images[0]?.url || ARTISTS_DEFAULT_IMAGE}
+                        src={artist.images?.[0]?.url || ARTISTS_DEFAULT_IMAGE}
                       />
                     </Link>
                   ) : null}
@@ -137,8 +137,8 @@ export const AlbumHeader: FC<AlbumHeaderProps> = ({ container, sectionContainer,
                     )}{' '}
                     <span className='songs-number'>
                       {' '}
-                      • {dayjs(album?.release_date!).format('YYYY')} • {album?.total_tracks}{' '}
-                      {t(album?.total_tracks === 1 ? 'song' : 'songs')},{'  '}
+                      • {dayjs(album?.release_date || '2026').format('YYYY')} • {album?.total_tracks || tracks?.length || 0}{' '}
+                      {t((album?.total_tracks || tracks?.length || 0) === 1 ? 'song' : 'songs')},{'  '}
                       {sumTracksLength(tracks)}
                     </span>
                   </h3>

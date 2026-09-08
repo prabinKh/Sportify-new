@@ -1,195 +1,367 @@
 import axios from '../axios';
-import type { Pagination } from '../interfaces/api';
-import { Device } from '../interfaces/devices';
-import type { PlayHistoryObject } from '../interfaces/player';
+import { store } from '../store/store';
+import { spotifyActions } from '../store/slices/spotify';
+import { formatLocalTrack } from '../utils';
 
-// The device playback commands should target — the Web Playback SDK device by default, or
-// whatever device the user explicitly transfers to. Sending `device_id` on `play` means we
-// don't depend on Spotify already having an "active device", which avoids the 404
-// "Device not found" (its message for "no active device" too). Persist to localStorage so the
-// id survives dev-server hot-reloads, where the SDK's `ready` event won't fire again.
-const DEVICE_STORAGE_KEY = 'playback_device_id';
-let playbackDeviceId: string | null = null;
-// Name of our Web Playback SDK device, used to re-resolve its id from the live devices list.
-// The SDK assigns a NEW device_id on every (re)connect, so a cached id goes stale — matching
-// by name is the reliable way to find the current device.
-let playbackDeviceName: string | null = null;
+const audioElement = new Audio();
+let currentQueue: any[] = [];
+let currentIndex = 0;
+let isPlaying = false;
+let isShuffle = false;
+let repeatMode: 'off' | 'track' | 'context' = 'off';
 
-export const setPlaybackDevice = (deviceId: string | null) => {
-  playbackDeviceId = deviceId;
-  try {
-    if (deviceId) localStorage.setItem(DEVICE_STORAGE_KEY, deviceId);
-  } catch {
-    /* ignore storage errors */
+const notifyState = () => {
+  const currentTrack = currentQueue[currentIndex];
+  if (!currentTrack) {
+    store.dispatch(spotifyActions.setState({ state: null }));
+    return;
   }
+
+  const formattedTrack = formatLocalTrack(currentTrack);
+
+  const playbackState: any = {
+    paused: !isPlaying,
+    position: Math.round((audioElement.currentTime || 0) * 1000),
+    duration: Math.round((audioElement.duration || (currentTrack.duration_seconds || 180)) * 1000),
+    repeat_mode: repeatMode === 'track' ? 2 : repeatMode === 'context' ? 1 : 0,
+    shuffle: isShuffle,
+    context: {
+      uri: currentTrack.uri || `spotify:track:${currentTrack.id}`,
+    },
+    track_window: {
+      current_track: formattedTrack,
+      next_tracks: currentQueue.slice(currentIndex + 1).map(formatLocalTrack),
+      previous_tracks: currentQueue.slice(0, currentIndex).map(formatLocalTrack),
+    },
+    disallows: {
+      pausing: !isPlaying,
+      resuming: isPlaying,
+      skipping_next: currentQueue.length <= 1,
+      skipping_prev: false,
+    },
+  };
+
+  store.dispatch(spotifyActions.setState({ state: playbackState }));
 };
 
-export const setPlaybackDeviceName = (name: string | null) => {
-  playbackDeviceName = name;
-};
+audioElement.addEventListener('timeupdate', () => {
+  notifyState();
+});
 
-const currentDeviceId = () => {
-  if (playbackDeviceId) return playbackDeviceId;
-  try {
-    return localStorage.getItem(DEVICE_STORAGE_KEY);
-  } catch {
-    return null;
+audioElement.addEventListener('play', () => {
+  isPlaying = true;
+  notifyState();
+});
+
+audioElement.addEventListener('pause', () => {
+  isPlaying = false;
+  notifyState();
+});
+
+audioElement.addEventListener('ended', () => {
+  if (repeatMode === 'track') {
+    audioElement.currentTime = 0;
+    audioElement.play().catch(() => { });
+  } else if (currentIndex < currentQueue.length - 1) {
+    nextTrack();
+  } else if (repeatMode === 'context' && currentQueue.length > 0) {
+    currentIndex = 0;
+    playCurrentIndex();
+  } else {
+    isPlaying = false;
+    notifyState();
   }
-};
+});
 
-const deviceParams = () => {
-  const id = currentDeviceId();
-  return id ? { device_id: id } : undefined;
-};
-
-// Resolve the current, live id of our SDK device from `/me/player/devices`, matching by name
-// (falling back to the cached id). Updates the cache so subsequent calls hit the fast path.
-const resolveLiveDeviceId = async (): Promise<string | null> => {
+const recordHistory = async (trackId: any) => {
+  if (!trackId) return;
   try {
-    const { data } = await axios.get<{ devices: Device[] }>('/me/player/devices');
-    const match =
-      (playbackDeviceName && data.devices.find((d) => d.name === playbackDeviceName)) ||
-      data.devices.find((d) => d.id === currentDeviceId());
-    if (match?.id) {
-      setPlaybackDevice(match.id);
-      return match.id;
-    }
-  } catch {
-    /* ignore — fall back to the cached id below */
-  }
-  return currentDeviceId();
-};
-
-/**
- * @description Get information about the user’s current playback state, including track or episode, progress, and active device.
- */
-const fetchPlaybackState = async () => {
-  const response = await axios.get('/me/player');
-  return response.data;
-};
-
-/**
- *
- * @description Transfer playback to a new device and optionally begin playback. This API only works for users who have Spotify Premium. The order of execution is not guaranteed when you use this API with other Player API endpoints.
- * @param deviceId The ID of the device this command is targeting. If not supplied, the user’s currently active device is the target.
- */
-const transferPlayback = async (deviceId: string) => {
-  // Remember the target before the request: even if this transfer 404s due to the
-  // registration race, subsequent `startPlayback` calls carry `device_id` and recover.
-  setPlaybackDevice(deviceId);
-  await axios.put('/me/player', { device_ids: [deviceId] });
-};
-
-/**
- * @description Get information about a user’s available Spotify Connect devices. Some device models are not supported and will not be listed in the API response.
- */
-const getAvailableDevices = async () => {
-  const response = await axios.get<{ devices: Device[] }>('/me/player/devices');
-  return response.data;
-};
-
-/**
- * @description Start a new context or resume current playback on the user's active device. This API only works for users who have Spotify Premium. The order of execution is not guaranteed when you use this API with other Player API endpoints.
- */
-const startPlayback = async (
-  body: { context_uri?: string; uris?: string[]; offset?: { position: number } } = {}
-) => {
-  try {
-    await axios.put('/me/player/play', body, { params: deviceParams() });
-  } catch (e: any) {
-    // "Device not found" means the cached id is stale (the SDK reconnected with a new id) or
-    // our device isn't active yet. Re-resolve the live device by name, transfer, and retry.
-    if (e?.response?.status !== 404) throw e;
-    const id = await resolveLiveDeviceId();
-    if (!id) throw e;
-    await axios.put('/me/player', { device_ids: [id] }).catch(() => {});
-    await new Promise((resolve) => setTimeout(resolve, 700));
-    await axios.put('/me/player/play', body, { params: { device_id: id } });
-  }
-};
-
-// Fire-and-forget transport command. Targets our SDK device (so it doesn't depend on a
-// pre-existing "active device") and never throws on a transient failure — e.g. a stray
-// `onChangeEnd` fired during a React StrictMode unmount, or no active device yet. This keeps a
-// failed control call from surfacing as an uncaught 404 in the UI.
-const playerCommand = async (
-  method: 'put' | 'post',
-  url: string,
-  params?: Record<string, string | number | boolean>
-) => {
-  try {
-    await axios[method](url, {}, { params: { ...deviceParams(), ...params } });
+    await axios.post('/api/history/', { track_id: trackId });
   } catch (e) {
-    console.warn(`Spotify player command failed: ${method.toUpperCase()} ${url}`, e);
+    /* ignore history record errors */
   }
 };
 
-/**
- * @description Pause playback on the user's account. This API only works for users who have Spotify Premium.
- */
+const playCurrentIndex = async () => {
+  let track = currentQueue[currentIndex];
+  if (!track) return;
+
+  let audioUrl = track.audio_file;
+
+  if (!audioUrl || !audioUrl.startsWith('http') || audioUrl.includes('youtube.com')) {
+    try {
+      const trackId = String(track.id || track.uri?.split(':').pop() || '');
+      const res = await axios.get('/api/tracks/');
+      const allTracks = res.data || [];
+      const found = allTracks.find((t: any) => String(t.id) === trackId);
+      if (found && found.audio_file) {
+        audioUrl = found.audio_file;
+        track.audio_file = found.audio_file;
+      }
+    } catch (e) {
+      console.warn('Could not fetch audio_file for track', e);
+    }
+  }
+
+  if (!audioUrl && track.media_url && track.media_url.startsWith('http')) {
+    audioUrl = track.media_url;
+  }
+
+  if (audioUrl && audioUrl.startsWith('http')) {
+    audioElement.src = audioUrl;
+    try {
+      await audioElement.play();
+      isPlaying = true;
+      void recordHistory(track.id);
+    } catch (e) {
+      console.warn('Playback error:', e);
+    }
+  } else {
+    console.error('No playable audio URL found for track:', track);
+  }
+  notifyState();
+};
+
+export const setPlaybackDevice = (_deviceId: string | null) => { };
+export const setPlaybackDeviceName = (_name: string | null) => { };
+
+const fetchPlaybackState = async () => {
+  notifyState();
+  return null;
+};
+
+const transferPlayback = async (_deviceId: string) => { };
+
+const getAvailableDevices = async () => {
+  return {
+    devices: [
+      {
+        id: 'html5_player',
+        is_active: true,
+        is_private_session: false,
+        is_restricted: false,
+        name: 'YouTube HTML5 Player',
+        type: 'Computer',
+        volume_percent: Math.round(audioElement.volume * 100),
+      },
+    ],
+  };
+};
+
+const startPlayback = async (
+  body: {
+    context_uri?: string;
+    uris?: string[];
+    offset?: { position: number };
+    track?: any;
+    tracks?: any[];
+  } = {}
+) => {
+  // 1. Explicit tracks list provided
+  if (body.tracks && body.tracks.length > 0) {
+    currentQueue = body.tracks.map(formatLocalTrack);
+    if (body.track) {
+      const idx = currentQueue.findIndex((t: any) => String(t.id) === String(body.track.id));
+      currentIndex = idx >= 0 ? idx : body.offset?.position || 0;
+    } else {
+      currentIndex = body.offset?.position || 0;
+    }
+    await playCurrentIndex();
+    return;
+  }
+
+  // 2. context_uri is provided (album, playlist, artist, liked, etc.)
+  if (body.context_uri) {
+    const uri = String(body.context_uri);
+    let fetchedTracks: any[] = [];
+
+    if (uri.includes('playlist')) {
+      const playlistId = uri.split(':').pop() || '';
+      const res = await axios.get(`/api/playlists/${playlistId}/`).catch(() => ({ data: null }));
+      if (res.data?.tracks) {
+        fetchedTracks = res.data.tracks.map(formatLocalTrack);
+      }
+    } else if (uri.includes('artist')) {
+      const artistId = uri.split(':').pop() || '';
+      const res = await axios.get(`/api/artists/${artistId}/audios/`).catch(() => ({ data: [] }));
+      fetchedTracks = (res.data || []).map(formatLocalTrack);
+    } else if (uri.includes('album')) {
+      const albumId = uri.split(':').pop() || '';
+      const res = await axios.get('/api/tracks/').catch(() => ({ data: [] }));
+      const all = (res.data || []).map(formatLocalTrack);
+      const filtered = all.filter((t: any) => String(t.album?.id) === String(albumId));
+      fetchedTracks = filtered.length > 0 ? filtered : all;
+    } else if (uri.includes('collection') || uri.includes('liked')) {
+      const res = await axios.get('/api/favorites/').catch(() => ({ data: [] }));
+      fetchedTracks = (res.data || []).map((fav: any) => formatLocalTrack(fav.media_file)).filter(Boolean);
+    }
+
+    if (fetchedTracks.length > 0) {
+      currentQueue = fetchedTracks;
+      if (body.track) {
+        const idx = currentQueue.findIndex((t: any) => String(t.id) === String(body.track.id));
+        currentIndex = idx >= 0 ? idx : body.offset?.position || 0;
+      } else {
+        currentIndex = body.offset?.position || 0;
+      }
+      await playCurrentIndex();
+      return;
+    }
+  }
+
+  // 3. uris array provided
+  if (body.uris && body.uris.length > 0) {
+    const rawAllTracks = await axios.get('/api/tracks/').catch(() => ({ data: [] }));
+    const allTracks = (rawAllTracks.data || []).map(formatLocalTrack);
+    const targetUris = body.uris.map((u) => u.replace(/^spotify:track:/, ''));
+    const matched = allTracks.filter((t: any) => targetUris.includes(String(t.id)) || body.uris!.includes(t.uri));
+
+    if (matched.length > 0) {
+      currentQueue = matched;
+      if (body.track) {
+        const idx = currentQueue.findIndex((t: any) => String(t.id) === String(body.track.id));
+        currentIndex = idx >= 0 ? idx : body.offset?.position || 0;
+      } else {
+        currentIndex = body.offset?.position || 0;
+      }
+      await playCurrentIndex();
+      return;
+    }
+  }
+
+  // 4. Single track provided (e.g. clicked on song row)
+  if (body.track) {
+    const formattedTarget = formatLocalTrack(body.track);
+    const res = await axios.get('/api/tracks/').catch(() => ({ data: [] }));
+    const allTracks = (res.data || []).map(formatLocalTrack);
+
+    if (allTracks.length > 0) {
+      currentQueue = allTracks;
+      const idx = currentQueue.findIndex((t: any) => String(t.id) === String(formattedTarget.id));
+      if (idx >= 0) {
+        currentIndex = idx;
+      } else {
+        currentQueue = [formattedTarget, ...allTracks];
+        currentIndex = 0;
+      }
+    } else {
+      currentQueue = [formattedTarget];
+      currentIndex = 0;
+    }
+    await playCurrentIndex();
+    return;
+  }
+
+  // 5. Currently playing audio is paused -> resume
+  if (audioElement.src && audioElement.paused) {
+    await audioElement.play();
+    isPlaying = true;
+    notifyState();
+    return;
+  }
+
+  // 6. Non-empty queue exists -> play current track
+  if (currentQueue.length > 0) {
+    await playCurrentIndex();
+    return;
+  }
+
+  // 7. Fallback: Fetch all tracks and play first
+  const res = await axios.get('/api/tracks/').catch(() => ({ data: [] }));
+  const tracks = (res.data || []).map(formatLocalTrack);
+  if (tracks.length > 0) {
+    currentQueue = tracks;
+    currentIndex = 0;
+    await playCurrentIndex();
+  }
+};
+
 const pausePlayback = async () => {
-  await playerCommand('put', '/me/player/pause');
+  audioElement.pause();
+  isPlaying = false;
+  notifyState();
 };
 
-/**
- * @description Skip to the next track in the user’s queue. This API only works for users who have Spotify Premium.
- */
 const nextTrack = async () => {
-  await playerCommand('post', '/me/player/next');
+  if (currentQueue.length === 0) {
+    const res = await axios.get('/api/tracks/').catch(() => ({ data: [] }));
+    currentQueue = (res.data || []).map(formatLocalTrack);
+  }
+  if (currentQueue.length === 0) return;
+
+  if (isShuffle) {
+    currentIndex = Math.floor(Math.random() * currentQueue.length);
+  } else {
+    currentIndex = (currentIndex + 1) % currentQueue.length;
+  }
+  await playCurrentIndex();
 };
 
-/**
- * @description Skip to the previous track in the user’s queue. This API only works for users who have Spotify Premium.
- */
 const previousTrack = async () => {
-  await playerCommand('post', '/me/player/previous');
+  if (currentQueue.length === 0) {
+    const res = await axios.get('/api/tracks/').catch(() => ({ data: [] }));
+    currentQueue = (res.data || []).map(formatLocalTrack);
+  }
+  if (currentQueue.length === 0) return;
+
+  if (audioElement.currentTime > 3) {
+    audioElement.currentTime = 0;
+    notifyState();
+    return;
+  }
+
+  if (isShuffle) {
+    currentIndex = Math.floor(Math.random() * currentQueue.length);
+  } else {
+    currentIndex = (currentIndex - 1 + currentQueue.length) % currentQueue.length;
+  }
+  await playCurrentIndex();
 };
 
-/**
- * @description Seeks to the given position in the user’s currently playing track. This API only works for users who have Spotify Premium.
- */
 const seekToPosition = async (position_ms: number) => {
-  await playerCommand('put', '/me/player/seek', { position_ms });
+  audioElement.currentTime = position_ms / 1000;
+  notifyState();
 };
 
-/**
- * @description Set the repeat mode for the user's playback. This API only works for users who have Spotify Premium.
- * @param state track, context, or off. track will repeat the current track. context will repeat the current context. off will turn repeat off.
- */
 const setRepeatMode = async (state: 'track' | 'context' | 'off') => {
-  await playerCommand('put', '/me/player/repeat', { state });
+  repeatMode = state;
+  notifyState();
 };
 
-/**
- * @description Set the volume for the user’s current playback device. This API only works for users who have Spotify Premium.
- * @param volume_percent The volume to set. Must be a value from 0 to 100 inclusive.
- */
 const setVolume = async (volume_percent: number) => {
-  await playerCommand('put', '/me/player/volume', { volume_percent });
+  audioElement.volume = Math.max(0, Math.min(1, volume_percent / 100));
+  notifyState();
 };
 
-/**
- * @description Toggle shuffle on or off for user’s playback. This API only works for users who have Spotify Premium.
- */
 const toggleShuffle = async (state: boolean) => {
-  await playerCommand('put', '/me/player/shuffle', { state });
+  isShuffle = state;
+  notifyState();
 };
 
-/**
- * @description Add an item to the end of the user's current playback queue. This API only works for users who have Spotify Premium.
- */
 const addToQueue = async (uri: string) => {
-  await playerCommand('post', '/me/player/queue', { uri });
+  currentQueue.push({ id: uri, uri, title: 'Queued Track' });
+  notifyState();
 };
 
-/**
- * @description Get tracks from the current user's recently played tracks. Note: Currently doesn't support podcast episodes.
- */
-const getRecentlyPlayed = async (params: { limit?: number; after?: number; before?: number }) => {
-  const response = await axios.get<Pagination<PlayHistoryObject>>('/me/player/recently-played', {
-    params,
-  });
-  return response.data;
+const getRecentlyPlayed = async (_params: { limit?: number; after?: number; before?: number } = {}) => {
+  try {
+    const response = await axios.get('/api/history/');
+    const data = response.data || [];
+    const items = data.map((item: any) => {
+      const trackObj = item.media_file ? formatLocalTrack(item.media_file) : null;
+      return {
+        track: trackObj,
+        played_at: item.played_at,
+        context: {
+          type: 'artist',
+          uri: `spotify:artist:${item.media_file?.artist_id || 1}`,
+        },
+      };
+    }).filter((i: any) => i.track !== null);
+    return { items };
+  } catch (e) {
+    return { items: [] };
+  }
 };
 
 export const playerService = {
@@ -209,3 +381,4 @@ export const playerService = {
   getRecentlyPlayed,
   getAvailableDevices,
 };
+

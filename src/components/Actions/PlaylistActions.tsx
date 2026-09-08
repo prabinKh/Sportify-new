@@ -10,6 +10,7 @@ import { playlistService } from '../../services/playlists';
 
 // Utils
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 
 // Interface
 import type { Playlist } from '../../interfaces/playlists';
@@ -33,6 +34,7 @@ export const PlayistActionsWrapper: FC<PlayistActionsWrapperProps> = memo((props
   const { children, playlist } = props;
 
   const { t } = useTranslation(['playlist']);
+  const navigate = useNavigate();
 
   const dispatch = useAppDispatch();
   const userId = useAppSelector((state) => state.auth.user?.id);
@@ -71,8 +73,15 @@ export const PlayistActionsWrapper: FC<PlayistActionsWrapperProps> = memo((props
         {
           label: t('Delete playlist'),
           key: '2',
-          disabled: true,
           icon: <DeleteIcon />,
+          onClick: () => {
+            if (!handleUserValidation()) return;
+            return playlistService.deletePlaylist(playlist.id).then(() => {
+              dispatch(yourLibraryActions.fetchMyPlaylists());
+              navigate('/');
+              message.success(t('Playlist deleted'));
+            });
+          },
         },
         {
           type: 'divider',

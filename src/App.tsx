@@ -16,7 +16,7 @@ import { Route, BrowserRouter as Router, Routes, useLocation } from 'react-route
 import { Provider } from 'react-redux';
 import { uiActions } from './store/slices/ui';
 import { PersistGate } from 'redux-persist/integration/react';
-import { authActions } from './store/slices/auth';
+import { authActions, loginToSpotify } from './store/slices/auth';
 import { persistor, store, useAppDispatch, useAppSelector } from './store/store';
 
 // Spotify
@@ -25,6 +25,7 @@ import WebPlayback, { WebPlaybackProps } from './utils/spotify/webPlayback';
 // Pages
 import SearchContainer from './pages/Search/Container';
 import { playerService } from './services/player';
+import { Spinner } from './components/spinner/spinner';
 
 const Home = lazy(() => import('./pages/Home'));
 const Page404 = lazy(() => import('./pages/404'));
@@ -55,56 +56,25 @@ window.addEventListener('resize', () => {
   }
 });
 
-// SpotifyContainer removed — auth is bypassed. WebPlayback is set up directly
-// in RootComponent if a real token is available.
 const SpotifyContainer: FC<{ children: any }> = memo(({ children }) => {
   const dispatch = useAppDispatch();
-  const token = useAppSelector((state) => state.auth.token);
+
+  const user = useAppSelector((state) => !!state.auth.user);
+  const requesting = useAppSelector((state) => state.auth.requesting);
 
   useEffect(() => {
-    // Pick up any stored token (from a prior real login) but never redirect to Spotify OAuth.
-    const tokenInLocalStorage = getFromLocalStorageWithExpiry('access_token');
-    if (tokenInLocalStorage) {
-      dispatch(authActions.setToken({ token: tokenInLocalStorage }));
-    }
+    dispatch(authActions.fetchUser());
   }, [dispatch]);
 
-  const webPlaybackSdkProps: WebPlaybackProps = useMemo(
-    () => ({
-      playerAutoConnect: true,
-      playerInitialVolume: 1.0,
-      playerRefreshRateMs: 1000,
-      playerName: 'Spotify React Player',
-      onPlayerRequestAccessToken: async () => {
-        const stored = getFromLocalStorageWithExpiry('access_token') as string | null;
-        if (stored) return stored;
-        const refreshed = (await getRefreshToken()) as string | null;
-        return refreshed || token || '';
-      },
-      onPlayerLoading: () => {},
-      onPlayerWaitingForDevice: () => {
-        dispatch(authActions.setPlayerLoaded({ playerLoaded: true }));
-      },
-      onPlayerError: (e) => {
-        console.warn('Spotify player error:', e);
-      },
-      onPlayerDeviceSelected: () => {
-        dispatch(authActions.setPlayerLoaded({ playerLoaded: true }));
-      },
-    }),
-    [dispatch, token]
-  );
+  if (!user) return <Spinner loading={requesting}>{children}</Spinner>;
 
-  // If there is a real token, mount the Web Playback SDK; otherwise just render children.
-  if (token) {
-    return <WebPlayback {...webPlaybackSdkProps}>{children}</WebPlayback>;
-  }
   return <>{children}</>;
 });
 
 const RoutesComponent = memo(() => {
   const location = useLocation();
   const container = useRef<HTMLDivElement>(null);
+  const user = useAppSelector((state) => !!state.auth.user);
 
   useEffect(() => {
     if (container.current) {
@@ -163,19 +133,21 @@ const RoutesComponent = memo(() => {
           ],
         },
         { path: '*', element: <Page404 /> },
-      ],
-    [container]
+      ].filter((r) => (user ? true : r.public)),
+    [container, user]
   );
 
   return (
     <div
       className='Main-section'
       ref={container}
-      style={{ height: undefined }}
+      style={{
+        height: user ? undefined : `calc(100vh - 50px)`,
+      }}
     >
       <div
         style={{
-          minHeight: 'calc(100vh - 230px)',
+          minHeight: user ? 'calc(100vh - 230px)' : 'calc(100vh - 100px)',
           width: '100%',
         }}
       >

@@ -92,53 +92,19 @@ export const fetchTopTracks = createAsyncThunk('home/fetchTopTracks', async () =
 export const fetchRecentlyPlayed = createAsyncThunk('home/fetchRecentlyPlayed', async () => {
   try {
     const response = await playerService.getRecentlyPlayed({ limit: 50 });
+    const items = response.items || [];
 
-    const items = response.items;
-
-    const groupedItems = groupBy(
-      items.filter((item) => ['artist', 'playlist', 'album'].includes(item.context?.type)),
-      (item) => item.context.type,
-    );
-
-    const artistsTracks = groupedItems['artist'] || [];
-    const albumsTracks = groupedItems['album'] || [];
-
-    // Cap how many ids we resolve: batch endpoints were removed (Feb 2026), so each id is now an
-    // individual GET. Resolving every unique id from 50 recently-played items could fire dozens of
-    // requests and trip the rate limit; the row only shows a handful, so 8 each is plenty.
-    const artistsIds = uniq(artistsTracks.map((item) => item.context.uri.split(':')[2])).slice(0, 8);
-    const albumsIds = uniq(albumsTracks.map((item) => item.context.uri.split(':')[2])).slice(0, 8);
-
-    const promises = [
-      artistsIds.length
-        ? artistService.fetchArtists(artistsIds)
-        : Promise.resolve({ data: { artists: [] } }),
-      albumsIds.length
-        ? albumsService.fetchAlbums(albumsIds)
-        : Promise.resolve({ data: { albums: [] } }),
-    ];
-
-    const [artistsResponse, albumsResponse] = await Promise.all(promises);
-
-    // @ts-ignore
-    const artists: Artist[] = artistsResponse.data.artists;
-
-    // @ts-ignore
-    const albums: Album[] = albumsResponse.data.albums;
-
-    const tracks = items.map((item) => {
-      if (item.context?.type === 'artist') {
-        return artists.find((artist) => artist.id === item.context.uri.split(':')[2])!;
+    if (items.length > 0) {
+      const tracks = items
+        .map((item: any) => item.track)
+        .filter((t: any) => !!t && !!t.id);
+      if (tracks.length > 0) {
+        return (uniqBy(tracks, 'id') as unknown) as (Track | Artist | Album)[];
       }
+    }
 
-      if (item.context?.type === 'album') {
-        return albums.find((album) => album.id === item.context.uri.split(':')[2])!;
-      }
-
-      return item.track;
-    });
-
-    return uniqBy(tracks, 'id');
+    const fallbackRes = await userService.fetchTopTracks({ limit: 10 });
+    return (fallbackRes.data.items || []) as (Track | Artist | Album)[];
   } catch (error) {
     console.log(error);
     return [];

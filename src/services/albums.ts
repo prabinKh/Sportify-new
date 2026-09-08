@@ -1,54 +1,91 @@
 import axios from '../axios';
+import { formatLocalTrack } from '../utils';
 
-import type { Track } from '../interfaces/track';
-import type { Album, AlbumFullObject } from '../interfaces/albums';
-import type { Pagination, PaginationQueryParams } from '../interfaces/api';
-
-const fetchNewRelases = async (_params: PaginationQueryParams = {}) => {
-  // `/browse/new-releases` was removed (Nov 2024 / Feb 2026). The previous approximation
-  // (latest albums from each followed artist) fired ~7 requests on every Home load, which was
-  // a major contributor to hitting Spotify's rate limit. Return empty so the "New releases"
-  // row hides cleanly and Home stays cheap; the user's other personalized rows still populate.
-  return { data: { albums: { items: [] } as unknown as Pagination<Album> } };
+const fetchNewRelases = async (_params: any = {}) => {
+  try {
+    const res = await axios.get('/api/tracks/').catch(() => ({ data: [] }));
+    const tracks = (res.data || []).map(formatLocalTrack);
+    const seen = new Set<string>();
+    const albums: any[] = [];
+    for (const t of tracks) {
+      if (t.album && !seen.has(t.album.id)) {
+        seen.add(t.album.id);
+        albums.push({
+          ...t.album,
+          album_type: 'single',
+          release_date: t.downloaded_at || '2026',
+          total_tracks: 1,
+        });
+      }
+    }
+    return { data: { albums: { items: albums, total: albums.length } } };
+  } catch (_e) {
+    return { data: { albums: { items: [], total: 0 } } };
+  }
 };
 
-/**
- * @description Get Spotify catalog information for a single album.
- */
-const fetchAlbum = (id: string) => axios.get<AlbumFullObject>(`/albums/${id}`);
+const fetchAlbum = async (id: string) => {
+  try {
+    const res = await axios.get('/api/tracks/').catch(() => ({ data: [] }));
+    const tracks = (res.data || []).map(formatLocalTrack);
+    const track = tracks.find((t: any) => String(t.album?.id) === String(id)) || tracks[0];
+    const albumName = track?.album?.name || (track ? track.name : `Album ${id}`);
+    const images = track?.album?.images?.length
+      ? track.album.images
+      : track?.images?.length
+      ? track.images
+      : [{ url: '' }];
+    const artists = track?.artists?.length ? track.artists : [{ id: '1', name: 'Artist' }];
+    return {
+      data: {
+        id: id,
+        uri: `spotify:album:${id}`,
+        name: albumName,
+        images: images,
+        artists: artists,
+        tracks: { items: tracks, total: tracks.length },
+      },
+    };
+  } catch (_e) {
+    return {
+      data: {
+        id: id,
+        uri: `spotify:album:${id}`,
+        name: `Album ${id}`,
+        images: [{ url: '' }],
+        artists: [{ id: '1', name: 'Artist' }],
+        tracks: { items: [], total: 0 },
+      },
+    };
+  }
+};
 
-/**
- * @description Get Spotify catalog information for multiple albums identified by their Spotify IDs.
- */
 const fetchAlbums = async (ids: string[]) => {
-  // Feb 2026 removed the batch `/albums?ids=` endpoint; fetch each album individually.
-  const responses = await Promise.all(ids.map((id) => axios.get<Album>(`/albums/${id}`)));
-  return { ...responses[0], data: { albums: responses.map((r) => r.data) } };
+  const responses = await Promise.all(ids.map((id) => fetchAlbum(id)));
+  return { data: { albums: responses.map((r) => r.data) } };
 };
 
-/**
- * @description Get Spotify catalog information about an album’s tracks. Optional parameters can be used to limit the number of tracks returned.
- */
-const fetchAlbumTracks = (id: string, params: PaginationQueryParams = {}) =>
-  axios.get<Pagination<Track>>(`/albums/${id}/tracks`, { params });
+const fetchAlbumTracks = async (_id: string, _params: any = {}) => {
+  try {
+    const res = await axios.get('/api/tracks/').catch(() => ({ data: [] }));
+    const items = (res.data || []).map(formatLocalTrack);
+    return { data: { items, total: items.length } };
+  } catch (_e) {
+    return { data: { items: [], total: 0 } };
+  }
+};
 
-/**
- * @description Get a list of the albums saved in the current Spotify user's 'Your Music' library.
- */
-const fetchSavedAlbums = (params: PaginationQueryParams = {}) =>
-  axios.get<Pagination<{ added_at: string; album: Album }>>('/me/albums', { params });
+const fetchSavedAlbums = async (_params: any = {}) => {
+  return { data: { items: [], total: 0 } };
+};
 
-/**
- * @description Save one or more albums to the current user's 'Your Music' library.
- */
-const saveAlbums = (ids: string[]) =>
-  axios.put('/me/library', { uris: ids.map((id) => `spotify:album:${id}`) });
+const saveAlbums = async (_ids: string[]) => {
+  return { data: {} };
+};
 
-/**
- * @description Remove one or more albums from the current user's 'Your Music' library.
- */
-const deleteAlbums = (ids: string[]) =>
-  axios.delete('/me/library', { data: { uris: ids.map((id) => `spotify:album:${id}`) } });
+const deleteAlbums = async (_ids: string[]) => {
+  return { data: {} };
+};
 
 export const albumsService = {
   fetchAlbum,
@@ -59,3 +96,5 @@ export const albumsService = {
   saveAlbums,
   deleteAlbums,
 };
+
+

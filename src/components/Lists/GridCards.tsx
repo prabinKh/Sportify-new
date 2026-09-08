@@ -39,7 +39,7 @@ const Card = ({
   onClick: () => void;
   context: { context_uri?: string; uris?: string[] };
 }) => {
-  const paused = useAppSelector((state) => state.spotify.state?.paused);
+  const paused = useAppSelector((state) => (state.spotify.state ? state.spotify.state.paused : true));
   const contextUri = useAppSelector((state) => state.spotify.state?.context.uri);
   const isCurrent = contextUri === uri;
 

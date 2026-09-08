@@ -11,10 +11,15 @@ export const YourPlaylists: FC<NewReleasesProps> = memo(() => {
   const { t } = useTranslation(['home']);
   const user = useAppSelector((state) => state.auth.user?.id);
   const playlists = useAppSelector((state) => state.yourLibrary.myPlaylists);
+  const featurePlaylists = useAppSelector((state) => state.home.featurePlaylists);
 
   const items = useMemo(() => {
-    return playlists.filter((p) => p.owner?.id === user).slice(0, 12);
-  }, [playlists, user]);
+    const userPlaylists = playlists.filter((p) => p.owner?.id === user);
+    if (userPlaylists.length > 0) {
+      return userPlaylists.slice(0, 12);
+    }
+    return (playlists.length > 0 ? playlists : featurePlaylists).slice(0, 12);
+  }, [playlists, user, featurePlaylists]);
 
   if (!items || !items.length) return null;
 

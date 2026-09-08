@@ -38,12 +38,14 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'corsheaders',
     'background_task',
 
     'downloader'
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -153,3 +155,26 @@ REST_FRAMEWORK = {
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'channel_list'
 LOGOUT_REDIRECT_URL = 'login'
+
+# ── CORS (Cross-Origin Resource Sharing) ────────────────────────────────────
+# Allow the React dev server to call the Django API with cookies.
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOWED_ORIGINS = [
+    'http://127.0.0.1:3000',
+    'http://localhost:3000',
+    'http://127.0.0.1:5173',
+    'http://localhost:5173',
+]
+CORS_ALLOW_CREDENTIALS = True
+
+# Session cookie settings for cross-origin requests (local dev only)
+SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SECURE = False  # False so cookies work over plain HTTP in dev
+
+# CSRF trusted origins (needed for any POST from the React app)
+CSRF_TRUSTED_ORIGINS = [
+    'http://127.0.0.1:3000',
+    'http://localhost:3000',
+    'http://127.0.0.1:5173',
+    'http://localhost:5173',
+]

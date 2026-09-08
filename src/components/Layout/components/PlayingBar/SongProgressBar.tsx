@@ -19,7 +19,7 @@ const SongProgressBar = memo(() => {
   const [selecting, setSelecting] = useState<boolean>(false);
 
   useEffect(() => {
-    if (position && duration && !selecting) {
+    if (position !== undefined && duration !== undefined && !selecting) {
       setValue(duration ? (position >= duration ? 0 : position / duration) : 0);
     }
   }, [position, duration, selecting]);
