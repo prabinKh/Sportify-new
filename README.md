@@ -1,138 +1,154 @@
 <div align="center">
-<a align="center" href="https://spotify-react-web-client.onrender.com/" target="_blank" >
-  <p align="center">
-    <img src="https://github.com/user-attachments/assets/726763a6-094a-42cf-878c-1e7d47a2e597" style="height: 250px"/>
-  </p>
-</a>
-</div>
+  <h1>🎧 Sportify-new (Spotify Web Client + YouTube Audio API)</h1>
+  <p>A full-featured, modern Spotify React web application integrated with a Python/Django YouTube Audio API backend.</p>
 
 <p align="center">
-
-<img src="https://img.shields.io/badge/Spotify-1ED760?style=for-the-badge&logo=spotify&logoColor=white" alt="Spotify Badge">
-<img src="https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB" alt="React Badge">
-<img src="https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white" alt="Typescript Badge">
-<img src="https://img.shields.io/badge/redux-%23593d88.svg?style=for-the-badge&logo=redux&logoColor=white" alt="Redux Badge">
-
+  <img src="https://img.shields.io/badge/Spotify-1ED760?style=for-the-badge&logo=spotify&logoColor=white" alt="Spotify Badge">
+  <img src="https://img.shields.io/badge/react-19-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB" alt="React Badge">
+  <img src="https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white" alt="Typescript Badge">
+  <img src="https://img.shields.io/badge/redux--toolkit-%23593d88.svg?style=for-the-badge&logo=redux&logoColor=white" alt="Redux Badge">
+  <img src="https://img.shields.io/badge/vite-8.1-%23646CFF.svg?style=for-the-badge&logo=vite&logoColor=white" alt="Vite Badge">
+  <img src="https://img.shields.io/badge/django-python-%23092E20.svg?style=for-the-badge&logo=django&logoColor=white" alt="Django Badge">
 </p>
+</div>
 
-# 🎧 Spotify React Web Client
-
-> [!IMPORTANT]
-> Spotify Playback requires users to authenticate with a valid Spotify Premium subscription.
-
-![gif](https://github.com/user-attachments/assets/2077cdef-f3fa-49c9-a905-9cc9ab6629fb)
+---
 
 ## 🚀 Features
 
-⚡ **Music Playback**: Play songs in real-time using the Spotify Playback SDK.
+- 🎵 **Dual Playback System**: Supports Spotify Web Playback SDK for authenticated users and YouTube Audio API for streaming tracks directly.
+- ⚡ **Bypass Auth / Demo Mode**: Explore and play tracks seamlessly without mandatory OAuth login gates.
+- 🔍 **Real-time Music Search & Suggestions**: Instant search across tracks, albums, artists, and playlists with recent search history.
+- 🎧 **Interactive Music Player**: Full playback bar with play/pause, seek, volume control, track progress, queue management, and lyrics view.
+- 📁 **Personal Library & Playlists**: Create, update, and manage customized playlists and liked songs.
+- 🌐 **Internationalization (i18n)**: Multi-language support (English, Spanish) powered by `react-i18next`.
+- 🐍 **Django Audio Engine (`youtube-audio-api`)**: Python/Django backend for fetching, caching, and serving YouTube audio streams with automated background tasks.
 
-⚡ **Playback Controls**: Play, pause, next, previous, shuffle, and repeat functionalities.
+---
 
-⚡ **Music Browsing**: Search and explore songs, artists, albums, and playlists.
+## 🛠 Tech Stack
 
-⚡ **Playlists Management**: Create, edit, and delete personalized playlists.
+### Frontend
+- **React 19** & **TypeScript**
+- **Redux Toolkit** & **Redux Persist**
+- **Vite 8** for fast HMR development and production bundling
+- **Ant Design (antd)** & **Vanilla CSS / SASS**
+- **Spotify Web API & Playback SDK**
 
-⚡ **Saved Playlists and Albums Access**: View and play your saved playlists and albums.
+### Backend (`youtube-audio-api/`)
+- **Python** & **Django**
+- **Django REST Framework**
+- **Background Tasks** for asynchronous fetching and downloads
+- **SQLite** for metadata storage
 
-⚡ **Liked Songs**: Mark tracks as "liked" and access a dedicated playlist for liked songs.
-
-⚡ **Playback Devices**: Switch between different playback devices (desktop, mobile, smart speakers).
-
-⚡ **Follow/Unfollow Artists**: Follow and unfollow artists to get updates on their new releases.
-
-⚡ **Artist and Album Pages**: Dedicated pages for artists and albums, showcasing top songs, discography, and related artists.
-
-## 🛠 Technologies Used
-
-🎵 React: For building the user interface with reusable components.
-
-🎵 React Redux: For global state management and smooth data flow across the app.
-
-🎵 Vite: For the development server and production builds.
-
-🎵 <a href="https://developer.spotify.com/documentation/web-api/">Spotify Web API</a>: To fetch data like playlists, albums, and user information.
-
-🎵 <a href="https://developer.spotify.com/documentation/web-playback-sdk/">Spotify Playback SDK</a>: For real-time music playback control within the web client.
+---
 
 ## 📸 Screenshots
 
-More in images [folder](https://github.com/francoborrelli/spotify-react-web-client/tree/main/images).
+See more in the [images folder](https://github.com/prabinKh/Sportify-new/tree/main/images).
 
 <div align="center">
-    <table >
-     <tr>
-       <td>
-         <img src="images/Home.png" alt="Home"/>
-         <img src="images/CurrentDevices.png" alt="Current devices"/>
-       </td>
-        <td>
-         <img src="images/NewPlaylist.png" alt="New playlist"/>
-          <img src="images/browse.png" alt="Browse"/>
-       </td>
-                 <td>
-         <img src="images/Profile.png" alt="Profile"/>
-          <img src="images/playlist.png" alt="Playlist"/>
-       </td>
-     </tr>
-    </table>
-    </div>
+  <table>
+    <tr>
+      <td>
+        <img src="images/Home.png" alt="Home Screen"/>
+        <img src="images/CurrentDevices.png" alt="Playback Devices"/>
+      </td>
+      <td>
+        <img src="images/NewPlaylist.png" alt="New Playlist"/>
+        <img src="images/browse.png" alt="Browse Music"/>
+      </td>
+      <td>
+        <img src="images/Profile.png" alt="User Profile"/>
+        <img src="images/playlist.png" alt="Playlist View"/>
+      </td>
+    </tr>
+  </table>
+</div>
 
-## ⚙️ Installation & Setup
+---
 
-To run this project locally, follow these steps:
+## ⚙️ Installation & Local Setup
 
-1. Clone this repository:
+### 1. Clone the Repository
 
+```bash
+git clone https://github.com/prabinKh/Sportify-new.git
+cd Sportify-new
+```
+
+### 2. Frontend Setup (React + Vite)
+
+1. Install dependencies:
    ```bash
-   git clone https://github.com/francoborrelli/spotify-react-web-client.git
-   ```
-
-2. Navigate to the project directory:
-
-   ```bash
-   cd spotify-react-web-client
-   ```
-
-3. Install dependencies:
-
-   ```bash
+   npm install
+   # or
    yarn install
    ```
 
-4. Set up your Spotify Developer account and create a [new app](https://developer.spotify.com/dashboard/applications) to obtain your **Client ID** and **Redirect URI**. Add the redirect URI `http://127.0.0.1:3000` in the Spotify Dashboard, then copy `.env.dist` to `.env` and fill in your values:
-
+2. Create environment variable file `.env`:
    ```bash
    cp .env.dist .env
    ```
-
-   ```
-   VITE_SPOTIFY_CLIENT_ID=<your id>
+   Fill in your Spotify Client credentials (optional for standard playback, required for full OAuth):
+   ```env
+   VITE_SPOTIFY_CLIENT_ID=<your_spotify_client_id>
    VITE_SPOTIFY_REDIRECT_URL=http://127.0.0.1:3000
    ```
 
-   > Vite only exposes env vars prefixed with `VITE_`. The redirect URL must match the Dashboard entry exactly.
-
-5. Start the development server:
-
+3. Start the Vite development server:
    ```bash
-   yarn start
+   npm run dev
+   # or
+   yarn dev
+   ```
+   Open `http://127.0.0.1:3000` in your browser.
+
+---
+
+### 3. Backend Setup (Django YouTube Audio API)
+
+1. Navigate to the backend directory:
+   ```bash
+   cd youtube-audio-api
    ```
 
-6. Open your browser and navigate to `http://127.0.0.1:3000`.
+2. Set up virtual environment & install requirements:
+   ```bash
+   python -m venv venv
+   # On Windows:
+   venv\Scripts\activate
+   # On macOS/Linux:
+   source venv/bin/activate
 
-## 🌐 2018 Version
+   pip install -r requirements.txt
+   ```
 
-There is also a 2018 version of this Spotify clone, which features the Spotify UI from that year. You can find the code for that version in the [`main-2018`](https://github.com/francoborrelli/spotify-react-web-client/tree/main-2018) branch.
+3. Run migrations and start the Django server:
+   ```bash
+   python manage.py migrate
+   python manage.py runserver 8000
+   ```
+   The backend API will run at `http://127.0.0.1:8000/`.
 
-- **2018 version branch**: [main-2018](https://github.com/francoborrelli/spotify-react-web-client/tree/main-2018)
-- **2018 live demo**: [Check out the app](https://spotify-react-web-client-2018.onrender.com/)
+---
 
-Feel free to explore the older version and compare the features and functionality between the two versions.
+## 📦 Building for Production
 
-## 🤝 Contributions
+To create a production build of the web client:
 
-Contributions are welcome! If you have any suggestions or improvements, feel free to fork the repository, create a new branch, and submit a pull request.
+```bash
+npm run build
+```
+
+This compiles TypeScript and outputs optimized static assets into the `build/` directory.
+
+---
+
+## 🤝 Contributing
+
+Contributions, bug reports, and feature requests are welcome! Feel free to fork the repository, open issues, or submit pull requests.
 
 ## 📝 License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This project is open-source and licensed under the [MIT License](LICENSE).
