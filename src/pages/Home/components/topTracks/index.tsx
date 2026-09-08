@@ -15,10 +15,12 @@ export const TopTracks: FC<{ setColor: (str: string) => void }> = (props) => {
 
   if (!topTracks || !topTracks.length) return null;
 
+  const recentTracks = topTracks.slice(0, isMobile ? 4 : 6);
+
   return (
     <div className='home-top-tracks'>
-      {topTracks.slice(0, isMobile ? 4 : undefined).map((item) => (
-        <HorizontalCard key={item.id || item.name} item={item} setColor={props.setColor} />
+      {recentTracks.map((item, index) => (
+        <HorizontalCard key={`top-track-${item.id || index}-${index}`} item={item} setColor={props.setColor} />
       ))}
     </div>
   );

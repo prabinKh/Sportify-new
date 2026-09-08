@@ -11,6 +11,7 @@ from .apiview import (
     PlaylistListCreateAPIView, PlaylistDetailAPIView, PlaylistTrackAddRemoveAPIView,
     FavoriteTrackListAPIView, FavoriteTrackToggleAPIView,
     ListeningHistoryAPIView,
+    FollowedArtistListAPIView, FollowArtistToggleAPIView, CheckFollowedArtistAPIView,
 )
 
 urlpatterns = [
@@ -49,5 +50,10 @@ urlpatterns = [
     path('api/favorites/', FavoriteTrackListAPIView.as_view(), name='api_favorite_list'),
     path('api/favorites/toggle/', FavoriteTrackToggleAPIView.as_view(), name='api_favorite_toggle'),
     path('api/history/', ListeningHistoryAPIView.as_view(), name='api_history'),
+
+    # ── REST API: Followed Artists ─────────────────────────────────────────────
+    path('api/following/artists/', FollowedArtistListAPIView.as_view(), name='api_followed_artists_list'),
+    path('api/following/artists/toggle/', FollowArtistToggleAPIView.as_view(), name='api_follow_artist_toggle'),
+    path('api/following/artists/contains/', CheckFollowedArtistAPIView.as_view(), name='api_check_followed_artists'),
 ]
 

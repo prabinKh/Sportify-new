@@ -92,7 +92,7 @@
     display: grid;
     border-radius: 100%;
     position: absolute;
-    outline: 25px solid #64d26d;
+    outline: 25px solid #e91429;
     height: 300px;
     width: 300px;
     animation: scalePulse 0.5s cubic-bezier(0.12, 0.84, 0.5, 0.44) forwards;
@@ -104,7 +104,7 @@
   #center-heart {
     #inner,
     #outer {
-      fill: #64d26d;
+      fill: #e91429;
     }
   }
 

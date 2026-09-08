@@ -4,6 +4,7 @@ import { LibraryTitle } from '../Title';
 import { ListItemComponent } from './ListCards';
 import { CompactItemComponent } from './CompactCards';
 import { LibraryFilters, SearchArea } from '../Filters';
+import { FaMicrophone } from 'react-icons/fa6';
 
 // Redux
 import { useAppDispatch, useAppSelector } from '../../../../../store/store';
@@ -76,9 +77,27 @@ const LoggedContent = memo(() => {
   const collapsed = useAppSelector(getLibraryCollapsed);
   const view = useAppSelector((state) => state.yourLibrary.view);
   const search = useAppSelector((state) => state.yourLibrary.search);
+  const filter = useAppSelector((state) => state.yourLibrary.filter);
   const [t] = useTranslation(['navbar']);
 
   const hasNoSearchResults = Boolean(search.trim()) && items.length === 0;
+
+  if (filter === 'ARTISTS' && items.length === 0 && !search.trim()) {
+    return (
+      <>
+        {!collapsed ? <SearchArea /> : null}
+        <div style={{ padding: '28px 16px', textAlign: 'center', color: '#b3b3b3' }}>
+          <FaMicrophone size={26} style={{ color: '#535353', marginBottom: 10 }} />
+          <p style={{ fontWeight: 600, color: '#ffffff', fontSize: '14px', marginBottom: '6px' }}>
+            No followed artists yet
+          </p>
+          <p style={{ fontSize: '12px', lineHeight: '1.4' }}>
+            Follow your favorite artists to easily find them here.
+          </p>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>

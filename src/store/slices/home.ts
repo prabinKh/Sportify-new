@@ -38,6 +38,7 @@ export interface MoreLikeArtistSection {
 
 const initialState: {
   topTracks: Track[];
+  artists: Artist[];
   newReleases: Album[];
   madeForYou: Playlist[];
   featurePlaylists: Playlist[];
@@ -53,6 +54,7 @@ const initialState: {
   trending: [],
   rankings: [],
   topTracks: [],
+  artists: [],
   section: 'ALL',
   podcastFilter: 'PODCASTS',
   madeForYou: [],
@@ -86,6 +88,11 @@ export const fetchNewReleases = createAsyncThunk('home/fetchNewReleases', async 
 
 export const fetchTopTracks = createAsyncThunk('home/fetchTopTracks', async () => {
   const response = await userService.fetchTopTracks({ limit: 8, timeRange: 'short_term' });
+  return response.data.items;
+});
+
+export const fetchTopArtists = createAsyncThunk('home/fetchTopArtists', async () => {
+  const response = await userService.fetchTopArtists({ limit: 50 });
   return response.data.items;
 });
 
@@ -214,6 +221,9 @@ const homeSlice = createSlice({
       state.episodesMightLike = action.payload.mightLike;
       state.episodesToTry = action.payload.toTry;
     });
+    builder.addCase(fetchTopArtists.fulfilled, (state, action) => {
+      state.artists = action.payload;
+    });
     builder.addCase(fetchMoreLikeArtists.fulfilled, (state, action) => {
       state.moreLikeArtists = action.payload;
     });
@@ -225,6 +235,7 @@ export const homeActions = {
   fetchRanking,
   fetchTrending,
   fetchTopTracks,
+  fetchTopArtists,
   fetchMadeForYou,
   fetchNewReleases,
   fetchRecentlyPlayed,

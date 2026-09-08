@@ -13,9 +13,8 @@ export const PlaylistTableHeader = () => {
         TableHeaderComponents.Index,
         TableHeaderComponents.Title,
         TableHeaderComponents.Artists,
-        TableHeaderComponents.Album,
         TableHeaderComponents.DateAdded,
-        TableHeaderComponents.Space,
+        TableHeaderComponents.Like,
         TableHeaderComponents.Time,
         TableHeaderComponents.Space,
       ]}

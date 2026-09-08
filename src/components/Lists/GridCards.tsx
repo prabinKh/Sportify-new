@@ -46,30 +46,78 @@ const Card = ({
   return (
     <div
       onClick={onClick}
-      style={{ cursor: 'pointer' }}
-      className='playlist-card relative rounded-lg overflow-hidden  hover:bg-spotify-gray-lightest transition'
+      style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', height: '100%' }}
+      className='playlist-card relative rounded-lg overflow-hidden hover:bg-spotify-gray-lightest transition'
     >
       <div
-        style={{ position: 'relative' }}
-        className='aspect-square md:aspect-w-1 md:aspect-h-1/2 lg:aspect-w-1 lg:aspect-h-3/4 xl:aspect-w-1 xl:aspect-h-4/5 p-4'
+        style={{ position: 'relative', width: '100%', padding: '12px' }}
       >
-        <img
-          src={image}
-          alt={title}
-          className={rounded ? 'rounded' : ''}
-          style={{ borderRadius: 5, width: '100%' }}
-        />
+        <div
+          style={{
+            position: 'relative',
+            width: '100%',
+            aspectRatio: '1 / 1',
+            borderRadius: rounded ? '50%' : '6px',
+            overflow: 'hidden',
+            backgroundColor: '#282828',
+            boxShadow: '0 8px 20px rgba(0, 0, 0, 0.4)',
+          }}
+        >
+          <img
+            src={image || PLAYLIST_DEFAULT_IMAGE}
+            alt={title}
+            className={rounded ? 'rounded' : ''}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              display: 'block',
+              borderRadius: rounded ? '50%' : '6px',
+            }}
+          />
+        </div>
         <div
           className={`circle-play-div transition translate-y-1/4 ${
             isCurrent && !paused ? 'active' : ''
           }`}
+          style={{
+            position: 'absolute',
+            right: 20,
+            bottom: 20,
+            zIndex: 2,
+          }}
         >
           <PlayCircle image={image} isCurrent={isCurrent} context={context} />
         </div>
       </div>
-      <div className='playlist-card-info'>
-        <h3 className='text-md font-semibold text-white'>{title}</h3>
-        <p>{description}</p>
+      <div className='playlist-card-info' style={{ padding: '0 12px 14px 12px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <h3
+          className='text-md font-semibold text-white'
+          style={{
+            margin: '0 0 4px 0',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            fontSize: '0.95rem',
+          }}
+        >
+          {title}
+        </h3>
+        <p
+          style={{
+            margin: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            fontSize: '0.8125rem',
+            color: '#b3b3b3',
+            lineHeight: 1.35,
+          }}
+        >
+          {description}
+        </p>
       </div>
     </div>
   );
@@ -89,6 +137,10 @@ export const ArtistCard = ({
 
   const title = item.name;
   const description = getDescription ? getDescription(item) : t('Artist');
+  const imageUrl =
+    (item.images && item.images.length && item.images[0]?.url) ||
+    (item as any)?.image ||
+    ARTISTS_DEFAULT_IMAGE;
 
   return (
     <ArtistActionsWrapper artist={item} trigger={['contextMenu']}>
@@ -98,7 +150,7 @@ export const ArtistCard = ({
           title={title}
           uri={item.uri}
           description={description}
-          image={item.images[0]?.url}
+          image={imageUrl}
           context={{ context_uri: item.uri }}
           onClick={() => navigate(`/artist/${item.id}`)}
         />

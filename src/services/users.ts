@@ -14,9 +14,13 @@ const fetchTopArtists = async (_params: any = {}) => {
 };
 
 const fetchFollowedArtists = async (_params: any = {}) => {
-  const res = await axios.get('/api/artists/');
-  const items = (res.data || []).map(formatLocalArtist);
-  return { data: { artists: { items, total: items.length } } };
+  try {
+    const res = await axios.get('/api/following/artists/');
+    const items = (res.data || []).map((item: any) => formatLocalArtist(item.channel || item));
+    return { data: { artists: { items, total: items.length } } };
+  } catch (e) {
+    return { data: { artists: { items: [], total: 0 } } };
+  }
 };
 
 const fetchQueue = async () => {
@@ -53,7 +57,12 @@ const checkFollowedPlaylist = async (_playlistId: string) => {
 };
 
 const checkFollowingArtists = async (ids: string[]) => {
-  return { data: ids.map(() => false) };
+  try {
+    const res = await axios.get(`/api/following/artists/contains/?ids=${ids.join(',')}`);
+    return { data: res.data || ids.map(() => false) };
+  } catch (e) {
+    return { data: ids.map(() => false) };
+  }
 };
 
 const checkFollowingUsers = async (ids: string[]) => {
@@ -78,11 +87,17 @@ const followPlaylist = async (_playlistId: string) => {
   return { data: {} };
 };
 
-const followArtists = async (_ids: string[]) => {
+const followArtists = async (ids: string[]) => {
+  for (const id of ids) {
+    await axios.post('/api/following/artists/toggle/', { artist_id: id }).catch(() => {});
+  }
   return { data: {} };
 };
 
-const unfollowArtists = async (_ids: string[]) => {
+const unfollowArtists = async (ids: string[]) => {
+  for (const id of ids) {
+    await axios.post('/api/following/artists/toggle/', { artist_id: id }).catch(() => {});
+  }
   return { data: {} };
 };
 

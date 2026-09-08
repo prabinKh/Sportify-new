@@ -189,7 +189,25 @@ const playlistSlice = createSlice({
       }
     },
     removeTrack(state, action: PayloadAction<{ id: string }>) {
-      state.tracks = state.tracks.filter((track) => track.track.id !== action.payload.id);
+      const target = String(action.payload.id);
+      const cleanTarget = target.replace('spotify:track:', '');
+      state.tracks = state.tracks.filter(
+        (item) =>
+          String(item.track?.id) !== target &&
+          String(item.track?.id) !== cleanTarget &&
+          item.track?.uri !== target &&
+          `spotify:track:${item.track?.id}` !== target
+      );
+      if (state.playlist) {
+        state.playlist = {
+          ...state.playlist,
+          tracks: {
+            ...state.playlist.tracks,
+            href: state.playlist.tracks?.href || '',
+            total: state.tracks.length,
+          },
+        };
+      }
     },
     setTrackLikeState(state, action: PayloadAction<{ id: string; saved: boolean }>) {
       state.tracks = state.tracks.map((track) =>

@@ -40,6 +40,7 @@ import { albumActions } from '../../store/slices/album';
 import { artistActions } from '../../store/slices/artist';
 import { Artist } from '../../interfaces/artist';
 import { uiActions } from '../../store/slices/ui';
+import { api } from '../../store/api';
 
 interface TrackActionsWrapperProps {
   canEdit?: boolean;
@@ -188,16 +189,23 @@ export const TrackActionsWrapper: FC<TrackActionsWrapperProps> = memo((props) =>
         icon: <DeleteIcon />,
         onClick: () => {
           if (!handleUserValidation()) return;
+          const trackId = String(track.id || track.uri);
           return playlistService
-            .removePlaylistItems(playlist!.id, [track.uri], playlist?.snapshot_id!)
+            .removePlaylistItems(playlist!.id, [track.uri || `spotify:track:${track.id}`], playlist?.snapshot_id!)
             .then(() => {
+              dispatch(playlistActions.removeTrack({ id: trackId }));
+              dispatch(playlistActions.refreshTracks(playlist!.id));
               dispatch(playlistActions.refreshPlaylist(playlist!.id));
-              dispatch(playlistActions.removeTrack({ id: track.uri }));
               dispatch(yourLibraryActions.fetchMyPlaylists());
+              dispatch(api.util.invalidateTags([{ type: 'Playlist', id: playlist!.id }, 'MyPlaylists']));
               message.open({
                 type: 'success',
                 content: t('Removed from playlist'),
               });
+            })
+            .catch((err) => {
+              message.error('Could not remove song from playlist');
+              console.error(err);
             });
         },
       });

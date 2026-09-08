@@ -595,17 +595,15 @@ export const AddToLibrary = (props: any) => (
     data-encore-id='icon'
     role='img'
     aria-hidden='true'
-    viewBox='0 0 24 24'
-    width='24'
-    height='24'
-    stroke='#b3b3b3'
-    fill='#b3b3b3'
-    strokeWidth='0'
+    viewBox='0 0 16 16'
+    width={props.width || '16'}
+    height={props.height || '16'}
+    fill='currentColor'
     className='hoverable-icon'
+    style={{ color: '#b3b3b3', cursor: 'pointer', transition: 'transform 0.15s ease, color 0.15s ease', ...props.style }}
     {...props}
   >
-    <path d='M11.999 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm-11 9c0-6.075 4.925-11 11-11s11 4.925 11 11-4.925 11-11 11-11-4.925-11-11z'></path>
-    <path d='M17.999 12a1 1 0 0 1-1 1h-4v4a1 1 0 1 1-2 0v-4h-4a1 1 0 1 1 0-2h4V7a1 1 0 1 1 2 0v4h4a1 1 0 0 1 1 1z'></path>
+    <path d='M1.69 2A4.582 4.582 0 0 1 8 2.023 4.583 4.583 0 0 1 11.88.5H12a4.583 4.583 0 0 1 3.25 1.343 4.583 4.583 0 0 1 .75 5.064 4.583 4.583 0 0 1-.75.986l-6.47 6.47a1.1 1.1 0 0 1-1.56 0L.75 7.893A4.583 4.583 0 0 1 .001 5.907 4.583 4.583 0 0 1 1.69 2zm1.06 1.06a3.083 3.083 0 0 0 0 4.36l5.25 5.25 5.25-5.25a3.083 3.083 0 0 0-4.36-4.36L8 3.94l-.89-.88a3.083 3.083 0 0 0-4.36 0z'></path>
   </svg>
 );
 
@@ -614,15 +612,15 @@ export const AddedToLibrary = (props: any) => (
     data-encore-id='icon'
     role='img'
     aria-hidden='true'
-    viewBox='0 0 24 24'
-    width='24'
-    height='24'
-    stroke='#1cb955'
-    fill='#1cb955'
-    strokeWidth='0'
+    viewBox='0 0 16 16'
+    width={props.width || '16'}
+    height={props.height || '16'}
+    fill={props.fill || '#e91429'}
+    className='hoverable-icon'
+    style={{ color: '#e91429', cursor: 'pointer', transition: 'transform 0.15s ease', ...props.style }}
     {...props}
   >
-    <path d='M1 12C1 5.925 5.925 1 12 1s11 4.925 11 11-4.925 11-11 11S1 18.075 1 12zm16.398-2.38a1 1 0 0 0-1.414-1.413l-6.011 6.01-1.894-1.893a1 1 0 0 0-1.414 1.414l3.308 3.308 7.425-7.425z'></path>
+    <path d='M15.724 4.22A4.313 4.313 0 0 0 12.192.81a4.269 4.269 0 0 0-4.192 2.37A4.269 4.269 0 0 0 3.808.81 4.313 4.313 0 0 0 .276 4.22c-.52 2.226.24 4.375 1.83 5.964L8 16l5.894-5.816c1.59-1.589 2.35-3.738 1.83-5.964z'></path>
   </svg>
 );
 

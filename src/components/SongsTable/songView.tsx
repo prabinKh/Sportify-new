@@ -93,9 +93,9 @@ const ClickeableCover = (props: ComponentProps) => {
         <div>
           <img
             src={imageUrl}
-            alt={song.album.name}
+            alt={song.album?.name || song.name}
             className='rounded-md'
-            style={{ width: 40, height: 40 }}
+            style={{ width: 40, height: 40, objectFit: 'cover', display: 'block' }}
           />
         </div>
         {button}
@@ -139,7 +139,19 @@ const Cover = ({ song, isList }: ComponentProps) => {
   if (!imageUrl) return null;
 
   return (
-    <img alt='song cover' src={song.album?.images[0].url} className='w-10 h-10 mr-4 rounded-md' />
+    <img
+      alt='song cover'
+      src={imageUrl}
+      className='w-10 h-10 mr-4 rounded-md'
+      style={{
+        width: 40,
+        height: 40,
+        objectFit: 'cover',
+        borderRadius: 4,
+        flexShrink: 0,
+        display: 'block',
+      }}
+    />
   );
 };
 
@@ -207,12 +219,29 @@ const Album = ({ song }: ComponentProps) => {
   );
 };
 
-const AddedAt = ({ addedAt }: ComponentProps) => {
+const AddedAt = ({ addedAt, song }: ComponentProps) => {
   const language = useAppSelector((state) => state.language.language);
-  if (!addedAt) return null;
+  const dateValue = addedAt || (song as any)?.downloaded_at;
+
+  let formatted = '';
+  if (dateValue) {
+    try {
+      const d = new Date(dateValue);
+      if (!isNaN(d.getTime())) {
+        formatted = d.toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        });
+      }
+    } catch {
+      formatted = '';
+    }
+  }
+
   return (
-    <p className='text-left tablet-hidden' style={{ flex: 3 }}>
-      <ReactTimeAgo date={new Date(addedAt)} locale={language === 'es' ? 'es-AR' : undefined} />
+    <p className='text-left tablet-hidden' style={{ flex: 3, margin: 0, color: '#b3b3b3', fontSize: '0.875rem' }}>
+      {formatted || '—'}
     </p>
   );
 };
@@ -245,15 +274,26 @@ const AddToLiked = ({
   );
 };
 
-const Actions = ({ song }: ComponentProps) => {
+const Actions = (props: ComponentProps) => {
+  const { song, canEdit, playlist, album, artist, saved, onToggleLike } = props;
   const [t] = useTranslation(['order']);
   return (
     <p
       className='text-right actions tablet-hidden'
       style={{ flex: 1, display: 'flex', justifyContent: 'center' }}
+      onClick={(e) => e.stopPropagation()}
     >
-      <TrackActionsWrapper track={song} trigger={['click']}>
-        <div>
+      <TrackActionsWrapper
+        track={song}
+        album={album}
+        artist={artist}
+        canEdit={canEdit}
+        playlist={playlist}
+        saved={onToggleLike ? saved : undefined}
+        onSavedToggle={onToggleLike ? onToggleLike : undefined}
+        trigger={['click']}
+      >
+        <div style={{ cursor: 'pointer' }} onClick={(e) => e.stopPropagation()}>
           <Tooltip title={`${t('More options for')} ${song.name}`}>
             <div>
               <MenuIcon />

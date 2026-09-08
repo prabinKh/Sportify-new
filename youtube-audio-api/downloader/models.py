@@ -62,6 +62,17 @@ class ListeningHistory(models.Model):
         return f"History: {self.media_file.title or self.media_file.id} at {self.played_at}"
 
 
+class FollowedArtist(models.Model):
+    channel = models.OneToOneField(YouTubeChannel, on_delete=models.CASCADE, related_name='follow_entry')
+    followed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-followed_at']
+
+    def __str__(self):
+        return f"Followed: {self.channel.name}"
+
+
 
 from django.db.models.signals import post_save
 from django.dispatch import receiver

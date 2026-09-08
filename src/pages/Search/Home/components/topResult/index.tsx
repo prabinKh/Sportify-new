@@ -151,6 +151,10 @@ const PlaylistCard = ({ item }: { item: Playlist }) => {
 const ArtistCard = ({ item }: { item: Artist }) => {
   const dispatch = useAppDispatch();
   const [t] = useTranslation(['artist']);
+  const imageUrl =
+    (item.images && item.images.length && item.images[0]?.url) ||
+    (item as any)?.image ||
+    ARTISTS_DEFAULT_IMAGE;
 
   return (
     <ArtistActionsWrapper artist={item} trigger={['contextMenu']}>
@@ -160,7 +164,7 @@ const ArtistCard = ({ item }: { item: Artist }) => {
           uri={item.uri}
           title={item.name}
           description={t('Artist')}
-          image={item.images[0]?.url}
+          image={imageUrl}
           link={`/artist/${item.id}`}
           context={{ context_uri: item.uri }}
           onClick={() => dispatch(searchHistoryActions.setItem(item))}

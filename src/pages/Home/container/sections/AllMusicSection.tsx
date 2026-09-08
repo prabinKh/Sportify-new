@@ -1,6 +1,7 @@
 import { Col } from 'antd';
 import { memo, type Dispatch, type SetStateAction } from 'react';
 
+import { PopularArtists } from '../../components/popularArtists';
 import { FavouriteArtists } from '../../components/favouriteArtists';
 import { FeaturePlaylists } from '../../components/featurePlaylists';
 import { MadeForYou } from '../../components/madeForYou';
@@ -53,13 +54,17 @@ export const HomeAllMusicSection = memo(({ setColor }: HomeAllMusicSectionProps)
         </Col>
       ) : null}
 
+      <Col span={24}>
+        <PopularArtists />
+      </Col>
+
       {user && hasMadeForYou ? (
         <Col span={24}>
           <MadeForYou />
         </Col>
       ) : null}
 
-      {user && section === 'ALL' && hasRecentlyPlayed ? (
+      {user && hasRecentlyPlayed ? (
         <Col span={24}>
           <RecentlyPlayed />
         </Col>

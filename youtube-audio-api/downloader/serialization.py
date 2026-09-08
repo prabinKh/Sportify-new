@@ -1,6 +1,6 @@
 import re
 from rest_framework import serializers
-from .models import MediaFile, YouTubeChannel, Playlist, FavoriteTrack, ListeningHistory
+from .models import MediaFile, YouTubeChannel, Playlist, FavoriteTrack, ListeningHistory, FollowedArtist
 
 
 def _absolute(request, url):
@@ -181,3 +181,11 @@ class ListeningHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = ListeningHistory
         fields = ['id', 'media_file', 'played_at']
+
+
+class FollowedArtistSerializer(serializers.ModelSerializer):
+    channel = ArtistSerializer(read_only=True)
+
+    class Meta:
+        model = FollowedArtist
+        fields = ['id', 'channel', 'followed_at']

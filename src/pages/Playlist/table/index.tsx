@@ -42,11 +42,15 @@ export const PlaylistList: FC<PlaylistListProps> = memo(({ color }) => {
 
     const query = search.trim().toLowerCase();
     return indexed.filter(({ song }) => {
-      const track = song.track;
+      const track = song?.track;
+      if (!track) return false;
+      const name = track.name || '';
+      const artists = track.artists?.map((a) => a.name || '').join(' ') || '';
+      const album = track.album?.name || '';
       return (
-        track.name.toLowerCase().includes(query) ||
-        track.artists.some((artist) => artist.name.toLowerCase().includes(query)) ||
-        track.album?.name?.toLowerCase().includes(query)
+        name.toLowerCase().includes(query) ||
+        artists.toLowerCase().includes(query) ||
+        album.toLowerCase().includes(query)
       );
     });
   }, [tracks, search, isSearching]);
@@ -57,7 +61,7 @@ export const PlaylistList: FC<PlaylistListProps> = memo(({ color }) => {
     <div
       className='playlist-list'
       style={{
-        maxHeight: 323,
+        minHeight: '60vh',
         background: `linear-gradient(${color} -50%, ${DEFAULT_PAGE_COLOR} 90%)`,
       }}
     >
@@ -112,7 +116,7 @@ export const PlaylistList: FC<PlaylistListProps> = memo(({ color }) => {
                     {visibleTracks.map(({ song, index }) => (
                       <SongView
                         song={song}
-                        key={`${song.added_at}-${song.track.id}`}
+                        key={`playlist-song-${song.track?.id || index}-${index}`}
                         index={index}
                       />
                     ))}
@@ -123,7 +127,7 @@ export const PlaylistList: FC<PlaylistListProps> = memo(({ color }) => {
                   {visibleTracks.map(({ song, index }) => (
                     <SongView
                       song={song}
-                      key={`${song.added_at}-${song.track.id}`}
+                      key={`playlist-song-${song.track?.id || index}-${index}`}
                       index={index}
                     />
                   ))}

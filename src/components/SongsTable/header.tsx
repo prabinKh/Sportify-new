@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 
 import { FC, memo } from 'react';
-import { Clock } from '../Icons';
+import { Clock, AddToLibrary } from '../Icons';
 
 interface ItemProps {
   isList: boolean;
@@ -43,6 +43,16 @@ const DateAdded = (props: ItemProps) => {
   return (
     <div style={{ flex: 3 }}>
       <h3 className='column-name tablet-hidden text-left'>{t('Date Added')}</h3>
+    </div>
+  );
+};
+
+const Like = (props: ItemProps) => {
+  return (
+    <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }} className='tablet-hidden'>
+      <h3 style={{ marginRight: 6, textAlign: 'right', display: 'flex', alignItems: 'center' }}>
+        <AddToLibrary width={16} height={16} style={{ color: '#bababa' }} />
+      </h3>
     </div>
   );
 };
@@ -96,6 +106,7 @@ export const TableHeaderComponents = {
   Index,
   Title,
   Artists,
+  Like,
   Time,
   Space,
   Album,

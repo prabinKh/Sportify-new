@@ -210,7 +210,11 @@ export const ArtistCardShort = ({ artist }: { artist: Artist }) => {
           onClick={onClick}
           title={artist.name}
           isCurrent={contextUri === artist.uri}
-          image={artist?.images[0]?.url || ARTISTS_DEFAULT_IMAGE}
+          image={
+            (artist?.images && artist.images.length && artist.images[0]?.url) ||
+            (artist as any)?.image ||
+            ARTISTS_DEFAULT_IMAGE
+          }
         />
       </div>
     </ArtistActionsWrapper>

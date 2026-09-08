@@ -41,7 +41,6 @@ export const Song = (props: SongProps) => {
       fields={[
         SongViewComponents.TitleWithCover,
         SongViewComponents.Artists,
-        SongViewComponents.Album,
         SongViewComponents.AddedAt,
         (props) => <SongViewComponents.AddToLiked {...props} onLikeRefresh={toggleLike} />,
         SongViewComponents.Time,

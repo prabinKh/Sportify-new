@@ -7,6 +7,33 @@ const normalizePlaylist = (p: any) => {
 };
 
 const getPlaylist = async (playlistId: string) => {
+  if (playlistId === 'featured-top-hits' || playlistId === 'featured-daily-mix') {
+    const tracksRes = await axios.get('/api/tracks/').catch(() => ({ data: [] }));
+    const tracks = (tracksRes.data || []).map(formatLocalTrack).filter(Boolean);
+    const isHits = playlistId === 'featured-top-hits';
+    const fallbackImg = 'https://community.spotify.com/t5/image/serverpage/image-id/25294i28328C78821614C4';
+    const image = isHits
+      ? tracks[0]?.album?.images?.[0]?.url || fallbackImg
+      : tracks[1]?.album?.images?.[0]?.url || tracks[0]?.album?.images?.[0]?.url || fallbackImg;
+
+    return {
+      data: {
+        id: playlistId,
+        type: 'playlist',
+        uri: `spotify:playlist:${playlistId}`,
+        name: isHits ? 'Top YouTube Audio Hits' : 'Daily Mix',
+        description: isHits ? 'The most popular downloaded tracks' : 'Fresh tracks tailored for you',
+        images: [{ url: image, height: 300, width: 300 }],
+        tracks: {
+          total: tracks.length,
+          items: tracks.map((t: any) => ({ track: t, added_at: t.downloaded_at })),
+        },
+        owner: { display_name: 'YouTube Mix', id: 'youtube_user' },
+        collaborative: false,
+        public: true,
+      },
+    };
+  }
   const response = await axios.get(`/api/playlists/${playlistId}/`);
   const formatted = formatLocalPlaylist(response.data);
   return { data: formatted };
@@ -16,49 +43,63 @@ const getPlaylistItems = async (
   playlistId: string,
   _params: any = { limit: 50 }
 ) => {
+  if (playlistId === 'featured-top-hits' || playlistId === 'featured-daily-mix') {
+    const tracksRes = await axios.get('/api/tracks/').catch(() => ({ data: [] }));
+    const tracks = (tracksRes.data || []).map(formatLocalTrack).filter(Boolean);
+    const items = tracks.map((t: any) => ({ track: t, added_at: t.downloaded_at }));
+    return { data: { items, total: items.length } };
+  }
   const response = await axios.get(`/api/playlists/${playlistId}/`);
-  const tracks = (response.data?.tracks || []).map(formatLocalTrack);
+  const tracks = (response.data?.tracks || []).map(formatLocalTrack).filter(Boolean);
   const items = tracks.map((t: any) => ({ track: t, added_at: t.downloaded_at }));
   return { data: { items, total: items.length } };
 };
 
 const getMyPlaylists = async (_params: any = {}) => {
-  const response = await axios.get('/api/playlists/');
-  const items = (response.data || []).map(formatLocalPlaylist);
+  const response = await axios.get('/api/playlists/').catch(() => ({ data: [] }));
+  const items = (response.data || []).map(formatLocalPlaylist).filter(Boolean);
   return { data: { items, total: items.length } };
 };
 
 const getFeaturedPlaylists = async (_params: any = {}) => {
-  const response = await axios.get('/api/playlists/');
-  let items = (response.data || []).map(formatLocalPlaylist);
-  if (items.length === 0) {
-    const tracksRes = await axios.get('/api/tracks/');
-    const tracks = (tracksRes.data || []).map(formatLocalTrack);
-    if (tracks.length > 0) {
-      items = [
-        {
-          id: 'featured-top-hits',
-          name: 'Top YouTube Audio Hits',
-          description: 'The most popular downloaded tracks',
-          images: tracks[0]?.album?.images || [{ url: '' }],
-          tracks: { total: tracks.length, items: tracks.map((t: any) => ({ track: t })) },
-          owner: { display_name: 'YouTube Mix', id: 'youtube_user' },
-          collaborative: false,
-          public: true,
-        },
-        {
-          id: 'featured-daily-mix',
-          name: 'Daily Mix',
-          description: 'Fresh tracks tailored for you',
-          images: tracks[1]?.album?.images || tracks[0]?.album?.images || [{ url: '' }],
-          tracks: { total: tracks.length, items: tracks.map((t: any) => ({ track: t })) },
-          owner: { display_name: 'YouTube Mix', id: 'youtube_user' },
-          collaborative: false,
-          public: true,
-        },
-      ];
-    }
-  }
+  const response = await axios.get('/api/playlists/').catch(() => ({ data: [] }));
+  const backendPlaylists = (response.data || []).map(formatLocalPlaylist).filter(Boolean);
+
+  const tracksRes = await axios.get('/api/tracks/').catch(() => ({ data: [] }));
+  const tracks = (tracksRes.data || []).map(formatLocalTrack).filter(Boolean);
+
+  const fallbackImg = 'https://community.spotify.com/t5/image/serverpage/image-id/25294i28328C78821614C4';
+  const img1 = tracks[0]?.album?.images?.[0]?.url || fallbackImg;
+  const img2 = tracks[1]?.album?.images?.[0]?.url || img1;
+
+  const featuredMixes: any[] = [
+    {
+      id: 'featured-top-hits',
+      type: 'playlist',
+      uri: 'spotify:playlist:featured-top-hits',
+      name: 'Top YouTube Audio Hits',
+      description: 'The most popular downloaded tracks',
+      images: [{ url: img1, height: 300, width: 300 }],
+      tracks: { total: tracks.length, items: tracks.map((t: any) => ({ track: t, added_at: t.downloaded_at })) },
+      owner: { display_name: 'YouTube Mix', id: 'youtube_user' },
+      collaborative: false,
+      public: true,
+    },
+    {
+      id: 'featured-daily-mix',
+      type: 'playlist',
+      uri: 'spotify:playlist:featured-daily-mix',
+      name: 'Daily Mix',
+      description: 'Fresh tracks tailored for you',
+      images: [{ url: img2, height: 300, width: 300 }],
+      tracks: { total: tracks.length, items: tracks.map((t: any) => ({ track: t, added_at: t.downloaded_at })) },
+      owner: { display_name: 'YouTube Mix', id: 'youtube_user' },
+      collaborative: false,
+      public: true,
+    },
+  ];
+
+  const items = [...featuredMixes, ...backendPlaylists];
   return { data: { playlists: { items, total: items.length } } };
 };
 

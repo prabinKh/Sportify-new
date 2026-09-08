@@ -22,6 +22,7 @@ const Home: FC<HomeProps> = memo((props) => {
   useEffect(() => {
     if (user) {
       dispatch(homeActions.fetchTopTracks());
+      dispatch(homeActions.fetchTopArtists());
       dispatch(homeActions.fetchMadeForYou());
       dispatch(homeActions.fetchRecentlyPlayed());
       dispatch(homeActions.fetchPodcastEpisodes());
@@ -29,6 +30,7 @@ const Home: FC<HomeProps> = memo((props) => {
       dispatch(yourLibraryActions.fetchMyPlaylists());
       dispatch(yourLibraryActions.fetchMyArtists());
     }
+    dispatch(homeActions.fetchTopArtists());
     dispatch(homeActions.fetchRanking());
     dispatch(homeActions.fetchTrending());
     dispatch(homeActions.fetchNewReleases());

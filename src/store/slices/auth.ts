@@ -67,6 +67,16 @@ const authSlice = createSlice({
     setPlayerLoaded(state, action: PayloadAction<{ playerLoaded: boolean }>) {
       state.playerLoaded = action.payload.playerLoaded;
     },
+    logout(state) {
+      state.user = undefined;
+      state.token = undefined;
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('user');
+      delete axios.defaults.headers.common['Authorization'];
+    },
+    setUser(state, action: PayloadAction<User | undefined>) {
+      state.user = action.payload;
+    },
   },
   extraReducers: (builder) => {
     builder.addCase(loginToSpotify.fulfilled, (state, action) => {

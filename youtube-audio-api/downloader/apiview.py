@@ -3,12 +3,13 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.db.models import Count, Q
-from .models import MediaFile, YouTubeChannel, Playlist, FavoriteTrack, ListeningHistory
+from .models import MediaFile, YouTubeChannel, Playlist, FavoriteTrack, ListeningHistory, FollowedArtist
 from .serialization import (
     MediaFileSerializer, YouTubeChannelSerializer,
     ArtistSerializer, ArtistAudioSerializer,
     LocalTrackSerializer, PlaylistSerializer,
     FavoriteTrackSerializer, ListeningHistorySerializer,
+    FollowedArtistSerializer,
 )
 from .utils import fetch_and_save_media_urls
 from .views import schedule_recurring_tasks_once
@@ -288,3 +289,51 @@ class ListeningHistoryAPIView(APIView):
         item = ListeningHistory.objects.create(media_file=track)
         serializer = ListeningHistorySerializer(item, context={'request': request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+# ── Followed Artists API Views ───────────────────────────────────────────────
+
+class FollowedArtistListAPIView(generics.ListAPIView):
+    queryset = FollowedArtist.objects.select_related('channel').all()
+    serializer_class = FollowedArtistSerializer
+    permission_classes = [AllowAny]
+
+    def get_serializer_context(self):
+        ctx = super().get_serializer_context()
+        ctx['request'] = self.request
+        return ctx
+
+
+class FollowArtistToggleAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        artist_id = request.data.get('artist_id') or request.data.get('id')
+        if not artist_id:
+            return Response({'error': 'artist_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            channel = YouTubeChannel.objects.get(pk=artist_id)
+        except (YouTubeChannel.DoesNotExist, ValueError):
+            return Response({'error': 'Artist not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        follow_obj, created = FollowedArtist.objects.get_or_create(channel=channel)
+        if not created:
+            follow_obj.delete()
+            return Response({'following': False, 'artist_id': channel.id, 'status': 'unfollowed'})
+        else:
+            return Response({'following': True, 'artist_id': channel.id, 'status': 'followed'})
+
+
+class CheckFollowedArtistAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        ids_param = request.query_params.get('ids', '')
+        if not ids_param:
+            return Response([])
+        ids = [i.strip() for i in ids_param.split(',') if i.strip()]
+        followed_ids = set(
+            FollowedArtist.objects.filter(channel_id__in=ids).values_list('channel_id', flat=True)
+        )
+        result = [int(i) in followed_ids if i.isdigit() else False for i in ids]
+        return Response(result)

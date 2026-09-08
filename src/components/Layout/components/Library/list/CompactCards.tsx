@@ -109,7 +109,11 @@ const ArtistCardShort = memo(({ artist }: { artist: Artist }) => {
           title={artist.name}
           isCurrent={contextUri === artist.uri}
           subtitle={filter === 'ALL' ? `• Artist` : ''}
-          image={artist?.images[0]?.url || ARTISTS_DEFAULT_IMAGE}
+          image={
+            (artist?.images && artist.images.length && artist.images[0]?.url) ||
+            (artist as any)?.image ||
+            ARTISTS_DEFAULT_IMAGE
+          }
         />
       </div>
     </ArtistActionsWrapper>

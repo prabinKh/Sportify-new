@@ -18,4 +18,8 @@ export const home = {
   PLAYLISTS: 'Playlists',
   you: 'you',
   'Made for you': 'Made for you',
+  'Recently played': 'Recently played',
+  'Featured playlists': 'Featured playlists',
+  'Your playlists': 'Your playlists',
+  'Your top mixes': 'Your top mixes',
 };

@@ -23,6 +23,8 @@ export function GridItemComponent(props: {
 }) {
   const { item, getDescription, onClick } = props;
 
+  if (!item) return null;
+
   if (item.type === 'track') {
     return <TrackCard item={item} onClick={onClick} />;
   }
@@ -37,6 +39,19 @@ export function GridItemComponent(props: {
 
   if (item.type === 'artist') {
     return <ArtistCard item={item} onClick={onClick} getDescription={getDescription} />;
+  }
+
+  if ('tracks' in item && ('owner' in item || 'collaborative' in item)) {
+    return <PlaylistCard item={item as Playlist} onClick={onClick} getDescription={getDescription} />;
+  }
+  if ('album_type' in item || 'total_tracks' in item) {
+    return <AlbumCard item={item as Album} onClick={onClick} getDescription={getDescription} />;
+  }
+  if ('duration_ms' in item || 'audio_file' in item) {
+    return <TrackCard item={item as Track} onClick={onClick} />;
+  }
+  if ('genres' in item || 'followers' in item) {
+    return <ArtistCard item={item as Artist} onClick={onClick} getDescription={getDescription} />;
   }
 
   return null;
@@ -87,9 +102,9 @@ export function GridItemList(props: {
 
   const gridItems = (items || [])
     .filter((i) => i)
-    .map((item) => (
+    .map((item, index) => (
       <div
-        key={item.uri}
+        key={`${item.type || 'item'}-${item.id || item.uri || index}-${index}`}
         className={horizontalScroll ? 'horizontal-grid-carousel__item' : undefined}
         style={{ position: 'relative' }}
       >
