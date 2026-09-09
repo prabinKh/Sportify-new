@@ -365,7 +365,9 @@ class ArtistPlaylistsAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         artist_id = self.kwargs.get('artist_id')
-        return Playlist.objects.filter(channel_id=artist_id).order_by('-created_at')
+        return Playlist.objects.filter(
+            Q(channel_id=artist_id) | Q(tracks__youtube_channel_id=artist_id)
+        ).distinct().order_by('-created_at')
 
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
@@ -389,3 +391,34 @@ class SyncChannelAPIView(APIView):
         t.start()
 
         return Response({'status': 'syncing', 'channel_id': channel.id, 'channel_name': channel.name})
+
+
+class MediaFileStemAPIView(APIView):
+    """
+    Generate or return real backend audio stems:
+    GET /api/media/<pk>/stem/?mode=full | vocal_only | beat_only | vocal_mute
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request, pk):
+        try:
+            media = MediaFile.objects.filter(audio_file__isnull=False).exclude(audio_file='').get(pk=pk)
+        except MediaFile.DoesNotExist:
+            return Response({'error': 'Track not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        mode = request.query_params.get('mode', 'full').lower()
+        valid_modes = ['full', 'vocal_only', 'beat_only', 'vocal_mute', 'vocals', 'instrumental', 'drums', 'bass', 'other']
+        if mode not in valid_modes:
+            mode = 'full'
+
+        from .audio_dsp import process_audio_stem
+        stem_url = process_audio_stem(media, mode)
+        if request.build_absolute_uri and stem_url.startswith('/'):
+            stem_url = request.build_absolute_uri(stem_url)
+
+        return Response({
+            'id': media.id,
+            'title': media.title,
+            'mode': mode,
+            'audio_url': stem_url,
+        })

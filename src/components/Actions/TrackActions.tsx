@@ -8,6 +8,7 @@ import {
   AddToQueueIcon,
   AddToLibrary,
   AddedToLibrary,
+  MicrophoneIcon,
 } from '../Icons';
 import { Dropdown, MenuProps, message } from 'antd';
 
@@ -258,6 +259,28 @@ export const TrackActionsWrapper: FC<TrackActionsWrapperProps> = memo((props) =>
         },
       });
     }
+
+    items.push({
+      label: t('Go to song page') || 'Go to song page',
+      key: '7',
+      icon: <AlbumIcon />,
+      onClick: () => {
+        const trId = track.id || track.uri.split(':').reverse()[0];
+        playerService.startPlayback({ uris: [track.uri] }).catch(() => {});
+        navigate(`/track/${trId}`);
+      },
+    });
+
+    items.push({
+      label: t('Karaoke Page') || 'Karaoke Page',
+      key: '8',
+      icon: <MicrophoneIcon />,
+      onClick: () => {
+        const trId = track.id || track.uri.split(':').reverse()[0];
+        playerService.startPlayback({ uris: [track.uri] }).catch(() => {});
+        navigate(`/karaoke/${trId}`);
+      },
+    });
 
     return items;
   };

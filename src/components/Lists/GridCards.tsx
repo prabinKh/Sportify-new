@@ -3,6 +3,7 @@ import { TrackActionsWrapper } from '../Actions/TrackActions';
 import { AlbumActionsWrapper } from '../Actions/AlbumActions';
 import { ArtistActionsWrapper } from '../Actions/ArtistActions';
 import { PlayistActionsWrapper } from '../Actions/PlaylistActions';
+import { MenuDots } from '../Icons';
 
 // Interfaces
 import type { Track } from '../../interfaces/track';
@@ -13,12 +14,15 @@ import type { Playlist } from '../../interfaces/playlists';
 // Utils
 import { useTranslation } from 'react-i18next';
 
+// Services
+import { playerService } from '../../services/player';
+
 // Redux
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store/store';
 
 // Constants
-import { PLAYLIST_DEFAULT_IMAGE } from '../../constants/spotify';
+import { PLAYLIST_DEFAULT_IMAGE, ARTISTS_DEFAULT_IMAGE } from '../../constants/spotify';
 import { uiActions } from '../../store/slices/ui';
 import { useCallback } from 'react';
 
@@ -228,7 +232,7 @@ export const PlaylistCard = ({
 
   return (
     <PlayistActionsWrapper playlist={item} trigger={['contextMenu']}>
-      <div onClick={onClick}>
+      <div onClick={onClick} style={{ position: 'relative' }}>
         <Card
           title={title}
           uri={item.uri}
@@ -237,6 +241,30 @@ export const PlaylistCard = ({
           onClick={() => navigate(`/playlist/${item.id}`)}
           image={item.images && item.images.length ? item.images[0].url : PLAYLIST_DEFAULT_IMAGE}
         />
+        <PlayistActionsWrapper playlist={item} trigger={['click']}>
+          <button
+            aria-label='Playlist options'
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'absolute',
+              top: 16,
+              right: 16,
+              zIndex: 5,
+              background: 'rgba(0, 0, 0, 0.7)',
+              border: 'none',
+              borderRadius: '50%',
+              width: 32,
+              height: 32,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              color: '#fff',
+            }}
+          >
+            <MenuDots />
+          </button>
+        </PlayistActionsWrapper>
       </div>
     </PlayistActionsWrapper>
   );
@@ -252,20 +280,25 @@ export const TrackCard = ({
   getDescription?: (track: Track) => string;
 }) => {
   const navigate = useNavigate();
-  const description = getDescription ? getDescription(item) : item.album.name;
+  const description = getDescription ? getDescription(item) : item.album?.name || 'Track';
+
+  const handleCardClick = () => {
+    if (onClick) onClick();
+    playerService.startPlayback({ uris: [item.uri] }).catch(() => {});
+    const trId = item.id || item.uri.split(':').pop();
+    navigate(`/track/${trId}`);
+  };
 
   return (
     <TrackActionsWrapper track={item} trigger={['contextMenu']}>
-      <div onClick={onClick}>
-        <Card
-          uri={item.uri}
-          title={item.name}
-          description={description}
-          context={{ uris: [item.uri] }}
-          image={item.album.images[0]?.url}
-          onClick={() => navigate(`/album/${item.album.id}`)}
-        />
-      </div>
+      <Card
+        uri={item.uri}
+        title={item.name}
+        description={description}
+        context={{ uris: [item.uri] }}
+        image={item.album?.images[0]?.url}
+        onClick={handleCardClick}
+      />
     </TrackActionsWrapper>
   );
 };

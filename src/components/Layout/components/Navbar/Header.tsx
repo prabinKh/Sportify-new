@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { Dropdown, MenuProps, message, Space } from 'antd';
+import { Dropdown, MenuProps, message, Space, Button } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -15,7 +15,7 @@ import {
 
 // Redux
 import { uiActions } from '../../../../store/slices/ui';
-import { authActions, loginToSpotify } from '../../../../store/slices/auth';
+import { authActions } from '../../../../store/slices/auth';
 import { useAppDispatch, useAppSelector } from '../../../../store/store';
 import { Tooltip } from '../../../Tooltip';
 
@@ -29,6 +29,8 @@ const Header = ({ opacity }: { opacity: number; title?: string }) => {
     (prev, next) => prev?.id === next?.id
   );
 
+  const isAuthenticated = Boolean(user && user.id && user.id !== 'guest');
+
   const handleLogout = useCallback(() => {
     dispatch(authActions.logout());
     message.success(t('Logged out successfully'));
@@ -36,11 +38,11 @@ const Header = ({ opacity }: { opacity: number; title?: string }) => {
   }, [dispatch, navigate, t]);
 
   const handleLogin = useCallback(() => {
-    dispatch(uiActions.openLoginModal(''));
+    dispatch(uiActions.openLoginModal('https://cdn-icons-png.flaticon.com/512/1384/1384060.png'));
   }, [dispatch]);
 
   const getMenuItems = (): MenuProps['items'] => {
-    if (user) {
+    if (isAuthenticated && user) {
       return [
         {
           key: 'user-info',
@@ -48,10 +50,10 @@ const Header = ({ opacity }: { opacity: number; title?: string }) => {
           label: (
             <div style={{ padding: '4px 2px', cursor: 'default' }}>
               <div style={{ fontWeight: 600, color: '#ffffff', fontSize: '0.95rem' }}>
-                {user.display_name || 'User'}
+                {user.display_name || user.username || 'User'}
               </div>
               <div style={{ fontSize: '0.75rem', color: '#a7a7a7' }}>
-                {user.email || user.id}
+                {user.email || `@${user.username || user.id}`}
               </div>
             </div>
           ),
@@ -96,13 +98,13 @@ const Header = ({ opacity }: { opacity: number; title?: string }) => {
       {
         key: 'login',
         icon: <FaArrowRightToBracket style={{ fontSize: 14 }} />,
-        label: t('Log in'),
+        label: 'Sign In (Django Backend)',
         onClick: handleLogin,
       },
       {
         key: 'signup',
         icon: <FaUserPlus style={{ fontSize: 14 }} />,
-        label: t('Sign in / Sign up'),
+        label: 'Create Account',
         onClick: handleLogin,
       },
     ];
@@ -115,7 +117,23 @@ const Header = ({ opacity }: { opacity: number; title?: string }) => {
       className='flex r-0 w-full flex-row items-center justify-between bg-gray-900 rounded-t-md z-10'
       style={{ backgroundColor: `rgba(12, 12, 12, ${opacity}%)` }}
     >
-      <div className='flex flex-row items-center'>
+      <div className='flex flex-row items-center gap-3'>
+        {!isAuthenticated && (
+          <Button
+            type='primary'
+            onClick={handleLogin}
+            style={{
+              background: '#1db954',
+              borderColor: '#1db954',
+              fontWeight: 700,
+              borderRadius: 20,
+              fontSize: '0.85rem',
+            }}
+          >
+            Log In / Sign Up
+          </Button>
+        )}
+
         <Space size={12} align='center'>
           <Dropdown
             menu={{ items: menuItems }}
@@ -124,7 +142,7 @@ const Header = ({ opacity }: { opacity: number; title?: string }) => {
             arrow
           >
             <div style={{ cursor: 'pointer' }}>
-              <Tooltip title={user ? user.display_name || t('Profile') : t('Account')}>
+              <Tooltip title={isAuthenticated && user ? user.display_name || t('Profile') : 'Account Sign In'}>
                 <button
                   type='button'
                   aria-label='Account menu'
@@ -143,7 +161,7 @@ const Header = ({ opacity }: { opacity: number; title?: string }) => {
                     justifyContent: 'center',
                   }}
                 >
-                  {user && user.images && user.images.length ? (
+                  {isAuthenticated && user && user.images && user.images.length > 0 ? (
                     <img
                       className='avatar'
                       id='user-avatar'
@@ -156,7 +174,7 @@ const Header = ({ opacity }: { opacity: number; title?: string }) => {
                       }}
                       src={user.images[0].url}
                     />
-                  ) : user ? (
+                  ) : isAuthenticated ? (
                     <FaUser size={18} color='#ffffff' />
                   ) : (
                     <FaCircleUser size={22} color='#b3b3b3' />

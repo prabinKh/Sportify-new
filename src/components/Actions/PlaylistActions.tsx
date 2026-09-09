@@ -39,7 +39,17 @@ export const PlayistActionsWrapper: FC<PlayistActionsWrapperProps> = memo((props
   const dispatch = useAppDispatch();
   const userId = useAppSelector((state) => state.auth.user?.id);
   const myPlaylists = useAppSelector((state) => state.yourLibrary.myPlaylists);
-  const canEdit = useMemo(() => userId === playlist.owner?.id, [userId, playlist.owner?.id]);
+  
+  const isSelfCreated = useMemo(() => {
+    if (!playlist) return false;
+    if ((playlist as any).is_own) return true;
+    if (!(playlist as any).channel_id && !(playlist as any).channel_name) return true;
+    if (playlist.owner?.id === 'youtube_user' || playlist.owner?.display_name === 'You') return true;
+    if (userId && playlist.owner?.id === userId) return true;
+    return false;
+  }, [playlist, userId]);
+
+  const canEdit = isSelfCreated;
 
   const handleUserValidation = useCallback(
     (button?: boolean) => {
@@ -66,7 +76,6 @@ export const PlayistActionsWrapper: FC<PlayistActionsWrapperProps> = memo((props
           key: 1,
           icon: <EditIcon />,
           onClick: () => {
-            if (!handleUserValidation()) return;
             dispatch(editPlaylistModalActions.setPlaylist({ playlist }));
           },
         },
@@ -75,11 +84,13 @@ export const PlayistActionsWrapper: FC<PlayistActionsWrapperProps> = memo((props
           key: '2',
           icon: <DeleteIcon />,
           onClick: () => {
-            if (!handleUserValidation()) return;
             return playlistService.deletePlaylist(playlist.id).then(() => {
               dispatch(yourLibraryActions.fetchMyPlaylists());
               navigate('/');
-              message.success(t('Playlist deleted'));
+              message.success(t('Playlist deleted') || 'Playlist deleted');
+            }).catch((err) => {
+              console.error('Failed to delete playlist:', err);
+              message.error(t('Failed to delete playlist') || 'Failed to delete playlist');
             });
           },
         },

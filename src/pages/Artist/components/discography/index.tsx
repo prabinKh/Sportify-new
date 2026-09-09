@@ -15,15 +15,16 @@ import { useAppSelector } from '../../../../store/store';
 
 const ChipsSection: FC<{ activeKey: string; setActiveKey: (str: string) => void }> = memo(
   (props) => {
-    const [t] = useTranslation(['artist']);
+    const [t] = useTranslation(['artist', 'playlist']);
     const { activeKey, setActiveKey } = props;
 
     const albums = useAppSelector((state) => state.artist.albums);
     const singles = useAppSelector((state) => state.artist.singles);
     const compilations = useAppSelector((state) => state.artist.compilations);
+    const playlists = useAppSelector((state) => state.artist.playlists || []);
 
     const chips = useMemo(() => {
-      if (!albums.length && !singles.length && !compilations.length) {
+      if (!albums.length && !singles.length && !compilations.length && !playlists.length) {
         return [];
       }
 
@@ -39,8 +40,12 @@ const ChipsSection: FC<{ activeKey: string; setActiveKey: (str: string) => void 
       if (compilations.length) {
         items.push('Compilations');
       }
+
+      if (playlists.length) {
+        items.push('Playlists');
+      }
       return items;
-    }, [albums, singles, compilations]);
+    }, [albums, singles, compilations, playlists]);
 
     useEffect(() => {
       if (chips.length) setActiveKey(chips[0]);
@@ -64,11 +69,12 @@ const ChipsSection: FC<{ activeKey: string; setActiveKey: (str: string) => void 
 );
 
 export const Discography = memo(() => {
-  const [t] = useTranslation(['artist']);
+  const [t] = useTranslation(['artist', 'playlist']);
   const artist = useAppSelector((state) => state.artist.artist);
   const albums = useAppSelector((state) => state.artist.albums);
   const singles = useAppSelector((state) => state.artist.singles);
   const compilations = useAppSelector((state) => state.artist.compilations);
+  const playlists = useAppSelector((state) => state.artist.playlists || []);
 
   const [activeKey, setActiveKey] = useState('Popular releases');
 
@@ -80,10 +86,12 @@ export const Discography = memo(() => {
         return singles;
       case 'Compilations':
         return compilations;
+      case 'Playlists':
+        return playlists;
       default:
         return orderBy([...albums, ...singles, ...compilations], 'release_date', 'desc');
     }
-  }, [activeKey, albums, singles, compilations]);
+  }, [activeKey, albums, singles, compilations, playlists]);
 
   return (
     <div>

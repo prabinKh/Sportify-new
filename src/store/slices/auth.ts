@@ -12,9 +12,9 @@ import type { User } from '../../interfaces/user';
 import { getFromLocalStorageWithExpiry } from '../../utils/localstorage';
 
 const defaultUser: User = ({
-  id: 'youtube_user',
-  display_name: 'YouTube Listener',
-  email: 'user@youtube-audio.local',
+  id: 'guest',
+  display_name: 'Guest Listener',
+  email: 'guest@sportify.local',
   images: [{ url: 'https://cdn-icons-png.flaticon.com/512/1384/1384060.png', height: 300, width: 300 }],
 } as unknown) as User;
 
@@ -22,16 +22,16 @@ const initialState: { token?: string; playerLoaded: boolean; user?: User; reques
   user: defaultUser,
   requesting: false,
   playerLoaded: false,
-  token: getFromLocalStorageWithExpiry('access_token') || 'local_token',
+  token: localStorage.getItem('access_token') || undefined,
 };
 
 export const loginToSpotify = createAsyncThunk<{ token?: string; loaded: boolean }>(
   'auth/loginToSpotify',
   async (_, thunkAPI) => {
-    const userToken: string | undefined = getFromLocalStorageWithExpiry('access_token') as string;
+    const userToken: string | undefined = localStorage.getItem('access_token') || undefined;
 
     if (userToken) {
-      axios.defaults.headers.common['Authorization'] = 'Bearer ' + userToken;
+      axios.defaults.headers.common['Authorization'] = 'Token ' + userToken;
       thunkAPI.dispatch(fetchUser());
       return { token: userToken, loaded: false };
     }
@@ -54,6 +54,38 @@ export const fetchUser = createAsyncThunk('auth/fetchUser', async () => {
   return response.data;
 });
 
+export const loginUser = createAsyncThunk(
+  'auth/loginUser',
+  async (credentials: { username: string; password: string }, thunkAPI) => {
+    try {
+      const data = await authService.login(credentials);
+      return data;
+    } catch (err: any) {
+      return thunkAPI.rejectWithValue(err.response?.data?.error || err.response?.data || 'Login failed');
+    }
+  }
+);
+
+export const registerUser = createAsyncThunk(
+  'auth/registerUser',
+  async (userData: { username: string; email?: string; password: string; display_name?: string }, thunkAPI) => {
+    try {
+      const data = await authService.register(userData);
+      return data;
+    } catch (err: any) {
+      return thunkAPI.rejectWithValue(err.response?.data || 'Registration failed');
+    }
+  }
+);
+
+export const performLogout = createAsyncThunk(
+  'auth/performLogout',
+  async (_, thunkAPI) => {
+    await authService.logout();
+    thunkAPI.dispatch(authActions.logout());
+  }
+);
+
 const authSlice = createSlice({
   name: 'auth',
   initialState,
@@ -68,7 +100,7 @@ const authSlice = createSlice({
       state.playerLoaded = action.payload.playerLoaded;
     },
     logout(state) {
-      state.user = undefined;
+      state.user = defaultUser;
       state.token = undefined;
       localStorage.removeItem('access_token');
       localStorage.removeItem('user');
@@ -87,9 +119,23 @@ const authSlice = createSlice({
       state.user = action.payload;
       state.requesting = false;
     });
+    builder.addCase(loginUser.fulfilled, (state, action) => {
+      if (action.payload.user) {
+        state.user = action.payload.user;
+        state.token = action.payload.token;
+      }
+      state.requesting = false;
+    });
+    builder.addCase(registerUser.fulfilled, (state, action) => {
+      if (action.payload.user) {
+        state.user = action.payload.user;
+        state.token = action.payload.token;
+      }
+      state.requesting = false;
+    });
   },
 });
 
-export const authActions = { ...authSlice.actions, loginToSpotify, fetchUser };
+export const authActions = { ...authSlice.actions, loginToSpotify, fetchUser, loginUser, registerUser, performLogout };
 
 export default authSlice.reducer;

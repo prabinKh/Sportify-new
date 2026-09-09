@@ -23,15 +23,23 @@ import { uiActions } from '../../../../store/slices/ui';
 import { languageActions } from '../../../../store/slices/language';
 import { useAppDispatch, useAppSelector } from '../../../../store/store';
 
+import { useNavigate } from 'react-router-dom';
+
 const LyricsButton = () => {
-  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const { t } = useTranslation(['playingBar']);
+  const currentTrack = useAppSelector((state) => state.spotify.state?.track_window?.current_track);
 
   return (
-    <Tooltip title={t('Lyrics')}>
+    <Tooltip title={t('Karaoke / Lyrics') || 'Karaoke / Lyrics'}>
       <button
-        style={{ marginLeft: 5, marginRight: 5 }}
-        onClick={() => dispatch(languageActions.openLanguageModal())}
+        style={{ marginLeft: 5, marginRight: 5, cursor: 'pointer' }}
+        onClick={() => {
+          if (currentTrack) {
+            const trId = currentTrack.id || currentTrack.uri.split(':').pop();
+            navigate(`/karaoke/${trId}`);
+          }
+        }}
       >
         <MicrophoneIcon />
       </button>

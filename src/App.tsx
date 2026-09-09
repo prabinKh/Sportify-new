@@ -37,6 +37,8 @@ const ArtistsPage = lazy(() => import('./pages/Artists'));
 const PlaylistView = lazy(() => import('./pages/Playlist'));
 const PlaylistsPage = lazy(() => import('./pages/Playlists'));
 const ArtistDiscographyPage = lazy(() => import('./pages/Discography'));
+const TrackPage = lazy(() => import('./pages/Track'));
+const KaraokePage = lazy(() => import('./pages/Karaoke'));
 
 const Profile = lazy(() => import('./pages/User/Home'));
 const ProfileTracks = lazy(() => import('./pages/User/Songs'));
@@ -105,6 +107,8 @@ const RoutesComponent = memo(() => {
           element: <PlaylistView container={container} />,
         },
         { path: '/album/:albumId', element: <AlbumView container={container} /> },
+        { public: true, path: '/track/:trackId', element: <TrackPage container={container} /> },
+        { public: true, path: '/karaoke/:trackId', element: <KaraokePage container={container} /> },
         {
           path: '/artist/:artistId/discography',
           element: <ArtistDiscographyPage container={container} />,

@@ -82,9 +82,25 @@ const recordHistory = async (trackId: any) => {
   }
 };
 
+let pendingPlayPromise: Promise<void> | null = null;
+let currentPlayRequestId = 0;
+
+const isSameSrc = (currentSrc: string, targetUrl: string) => {
+  if (!currentSrc || !targetUrl) return false;
+  try {
+    const currentAbs = new URL(currentSrc, window.location.href).href;
+    const targetAbs = new URL(targetUrl, window.location.href).href;
+    return currentAbs === targetAbs;
+  } catch (e) {
+    return currentSrc === targetUrl;
+  }
+};
+
 const playCurrentIndex = async () => {
   let track = currentQueue[currentIndex];
   if (!track) return;
+
+  const requestId = ++currentPlayRequestId;
 
   let audioUrl = track.audio_file;
 
@@ -92,6 +108,7 @@ const playCurrentIndex = async () => {
     try {
       const trackId = String(track.id || track.uri?.split(':').pop() || '');
       const res = await axios.get('/api/tracks/');
+      if (requestId !== currentPlayRequestId) return;
       const allTracks = res.data || [];
       const found = allTracks.find((t: any) => String(t.id) === trackId);
       if (found && found.audio_file) {
@@ -103,18 +120,51 @@ const playCurrentIndex = async () => {
     }
   }
 
+  if (requestId !== currentPlayRequestId) return;
+
   if (!audioUrl && track.media_url && track.media_url.startsWith('http')) {
     audioUrl = track.media_url;
   }
 
   if (audioUrl && audioUrl.startsWith('http')) {
-    audioElement.src = audioUrl;
-    try {
-      await audioElement.play();
+    if (pendingPlayPromise) {
+      try {
+        await pendingPlayPromise;
+      } catch (e) {
+        /* ignore pending promise interruption */
+      }
+    }
+
+    if (requestId !== currentPlayRequestId) return;
+
+    const same = isSameSrc(audioElement.src, audioUrl);
+
+    if (!same) {
+      audioElement.pause();
+      audioElement.src = audioUrl;
+    } else if (!audioElement.paused) {
+      // Already playing target track URL
       isPlaying = true;
-      void recordHistory(track.id);
-    } catch (e) {
-      console.warn('Playback error:', e);
+      notifyState();
+      return;
+    }
+
+    try {
+      pendingPlayPromise = audioElement.play();
+      await pendingPlayPromise;
+      if (requestId === currentPlayRequestId) {
+        isPlaying = true;
+        void recordHistory(track.id);
+      }
+    } catch (e: any) {
+      if (e.name !== 'AbortError') {
+        console.warn('Playback error:', e);
+      }
+      isPlaying = !audioElement.paused;
+    } finally {
+      if (requestId === currentPlayRequestId) {
+        pendingPlayPromise = null;
+      }
     }
   } else {
     console.error('No playable audio URL found for track:', track);
@@ -157,6 +207,39 @@ const startPlayback = async (
     tracks?: any[];
   } = {}
 ) => {
+  const curTrack = currentQueue[currentIndex];
+  const curId = curTrack ? String(curTrack.id || curTrack.uri?.split(':').pop()) : '';
+
+  let targetId: string | null = null;
+  if (body.uris && body.uris.length === 1) {
+    targetId = body.uris[0].replace(/^spotify:track:/, '');
+  } else if (body.track) {
+    targetId = String(body.track.id || body.track.uri?.split(':').pop() || '');
+  }
+
+  // If the exact same track is requested:
+  if (targetId && targetId === curId) {
+    if (!audioElement.paused || pendingPlayPromise !== null) {
+      isPlaying = true;
+      notifyState();
+      return;
+    }
+    // Resume if paused
+    if (audioElement.src && audioElement.paused) {
+      try {
+        pendingPlayPromise = audioElement.play();
+        await pendingPlayPromise;
+        isPlaying = true;
+      } catch (e: any) {
+        if (e.name !== 'AbortError') console.warn('Resume error:', e);
+      } finally {
+        pendingPlayPromise = null;
+      }
+      notifyState();
+      return;
+    }
+  }
+
   // 1. Explicit tracks list provided
   if (body.tracks && body.tracks.length > 0) {
     currentQueue = body.tracks.map(formatLocalTrack);
@@ -254,8 +337,15 @@ const startPlayback = async (
 
   // 5. Currently playing audio is paused -> resume
   if (audioElement.src && audioElement.paused) {
-    await audioElement.play();
-    isPlaying = true;
+    try {
+      pendingPlayPromise = audioElement.play();
+      await pendingPlayPromise;
+      isPlaying = true;
+    } catch (e: any) {
+      if (e.name !== 'AbortError') console.warn('Resume error:', e);
+    } finally {
+      pendingPlayPromise = null;
+    }
     notifyState();
     return;
   }
@@ -277,6 +367,13 @@ const startPlayback = async (
 };
 
 const pausePlayback = async () => {
+  if (pendingPlayPromise) {
+    try {
+      await pendingPlayPromise;
+    } catch (e) {
+      /* ignore */
+    }
+  }
   audioElement.pause();
   isPlaying = false;
   notifyState();
@@ -383,6 +480,75 @@ const getRecentlyPlayed = async (_params: { limit?: number; after?: number; befo
   }
 };
 
+let currentTempoPercent = 0;
+let currentKeySemitones = 0;
+let currentLeadVocalGain = 100;
+let currentBackingVocalGain = 100;
+let currentInstrumentalGain = 100;
+
+export const setTempo = async (tempoPercent: number) => {
+  currentTempoPercent = Math.max(-50, Math.min(50, tempoPercent));
+  const rate = 1 + (currentTempoPercent / 100);
+  audioElement.playbackRate = Math.max(0.5, Math.min(2.0, rate));
+  (audioElement as any).preservesPitch = true;
+  (audioElement as any).webkitPreservesPitch = true;
+  (audioElement as any).mozPreservesPitch = true;
+  notifyState();
+};
+
+export const setKeyShift = async (semitones: number) => {
+  currentKeySemitones = Math.max(-12, Math.min(12, semitones));
+  const pitchRatio = Math.pow(2, currentKeySemitones / 12);
+  const baseRate = 1 + (currentTempoPercent / 100);
+  if (currentKeySemitones !== 0) {
+    (audioElement as any).preservesPitch = false;
+    (audioElement as any).webkitPreservesPitch = false;
+    (audioElement as any).mozPreservesPitch = false;
+    audioElement.playbackRate = Math.max(0.5, Math.min(2.0, baseRate * pitchRatio));
+  } else {
+    (audioElement as any).preservesPitch = true;
+    (audioElement as any).webkitPreservesPitch = true;
+    (audioElement as any).mozPreservesPitch = true;
+    audioElement.playbackRate = Math.max(0.5, Math.min(2.0, baseRate));
+  }
+  notifyState();
+};
+
+export const setVocalControl = async (leadVocal: number, backingVocals: number, instrumental: number) => {
+  currentLeadVocalGain = leadVocal;
+  currentBackingVocalGain = backingVocals;
+  currentInstrumentalGain = instrumental;
+  notifyState();
+};
+
+export const playStemMode = async (trackId: string | number, mode: 'full' | 'vocal_only' | 'beat_only' | 'vocal_mute') => {
+  try {
+    const res = await axios.get(`/api/media/${trackId}/stem/`, { params: { mode } });
+    if (res.data && res.data.audio_url) {
+      const audioUrl = res.data.audio_url;
+      const curTime = audioElement.currentTime || 0;
+      const wasPlaying = isPlaying;
+
+      if (!isSameSrc(audioElement.src, audioUrl)) {
+        audioElement.pause();
+        audioElement.src = audioUrl;
+        try {
+          audioElement.currentTime = curTime;
+        } catch { }
+        if (wasPlaying) {
+          pendingPlayPromise = audioElement.play();
+          await pendingPlayPromise;
+          isPlaying = true;
+        }
+      }
+      notifyState();
+      return res.data;
+    }
+  } catch (e) {
+    console.warn('Failed to fetch backend stem mode:', e);
+  }
+};
+
 export const playerService = {
   addToQueue,
   setPlaybackDevice,
@@ -399,5 +565,8 @@ export const playerService = {
   seekToPosition,
   getRecentlyPlayed,
   getAvailableDevices,
+  setTempo,
+  setKeyShift,
+  setVocalControl,
+  playStemMode,
 };
-

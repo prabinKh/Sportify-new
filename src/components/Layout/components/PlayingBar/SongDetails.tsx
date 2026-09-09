@@ -85,7 +85,9 @@ const SongDetails: FC<{ isMobile?: boolean }> = memo((props) => {
           onSavedToggle={handleToggle}
         >
           <p className='text-white font-bold song-title' title={current_track?.name}>
-            {current_track?.name}
+            <Link to={`/track/${current_track?.id || current_track?.uri.split(':').reverse()[0]}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+              {current_track?.name}
+            </Link>
           </p>
         </TrackActionsWrapper>
         <span

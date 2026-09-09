@@ -12,7 +12,7 @@ from .apiview import (
     FavoriteTrackListAPIView, FavoriteTrackToggleAPIView,
     ListeningHistoryAPIView,
     FollowedArtistListAPIView, FollowArtistToggleAPIView, CheckFollowedArtistAPIView,
-    ArtistPlaylistsAPIView, SyncChannelAPIView,
+    ArtistPlaylistsAPIView, SyncChannelAPIView, MediaFileStemAPIView,
 )
 
 urlpatterns = [
@@ -31,6 +31,7 @@ urlpatterns = [
     path('api/channels/create/', YouTubeChannelCreateAPIView.as_view(), name='api_create_channel'),
     path('api/channels/<int:channel_id>/media/', MediaFileListAPIView.as_view(), name='api_media_list'),
     path('api/media/<int:pk>/', MediaFileDetailAPIView.as_view(), name='api_media_detail'),
+    path('api/media/<int:pk>/stem/', MediaFileStemAPIView.as_view(), name='api_media_stem'),
     path('api/audio/', AudioFileListAPIView.as_view(), name='api_audio_list'),
 
     # ── REST API: artists (channels with ≥1 downloaded audio) ─────────────────

@@ -1,0 +1,243 @@
+.track-page-container {
+  min-height: 100vh;
+  padding: 40px 32px 120px 32px;
+  position: relative;
+  overflow: hidden;
+  transition: background 0.8s ease;
+
+  .track-page-content {
+    max-width: 1000px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 36px;
+    z-index: 2;
+    position: relative;
+  }
+
+  // Cover image & album art container
+  .artwork-container {
+    position: relative;
+    width: 280px;
+    height: 280px;
+    border-radius: 16px;
+
+    &.is-playing {
+      .artwork-glow {
+        opacity: 0.85;
+        animation: pulseAura 3s infinite ease-in-out;
+      }
+      .track-cover-img {
+        transform: scale(1.03);
+      }
+    }
+
+    .artwork-glow {
+      position: absolute;
+      inset: -20px;
+      border-radius: 30px;
+      background: radial-gradient(circle, var(--accent-color, #1db954) 0%, transparent 70%);
+      filter: blur(35px);
+      opacity: 0.35;
+      transition: opacity 0.5s ease;
+      z-index: 0;
+    }
+
+    .track-cover-img {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 16px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+      transition: transform 0.4s ease;
+    }
+
+    .playing-badge {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 2;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(8px);
+      border-radius: 20px;
+      padding: 6px 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #1db954;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+  }
+
+  // Visualizer Equalizer Waveform Bars
+  .visualizer-container {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 5px;
+    height: 64px;
+    padding: 12px 24px;
+    background: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(12px);
+    border-radius: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+
+    .eq-bar {
+      width: 4px;
+      background: linear-gradient(180deg, #1ed760 0%, #1db954 100%);
+      border-radius: 4px;
+      height: 8px;
+      transition: height 0.2s ease;
+
+      &.playing {
+        animation: equalizeBar 1.2s infinite ease-in-out alternate;
+      }
+    }
+  }
+
+  // Track Info
+  .track-info-header {
+    text-align: center;
+    max-width: 680px;
+
+    .track-title {
+      font-size: 2.25rem;
+      font-weight: 800;
+      color: #ffffff;
+      margin: 0 0 10px 0;
+      line-height: 1.25;
+      text-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+
+    .artist-name {
+      font-size: 1.15rem;
+      color: #b3b3b3;
+      margin: 0;
+
+      a {
+        color: #ffffff;
+        text-decoration: none;
+        font-weight: 600;
+
+        &:hover {
+          color: #1db954;
+          text-decoration: underline;
+        }
+      }
+    }
+  }
+
+  // Playback Control Panel
+  .track-controls-card {
+    width: 100%;
+    max-width: 520px;
+    background: rgba(18, 18, 18, 0.6);
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    padding: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+
+    .progress-section {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+
+      .time-labels {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.8rem;
+        color: #b3b3b3;
+        font-family: monospace;
+      }
+
+      .progress-bar-bg {
+        width: 100%;
+        height: 6px;
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 6px;
+        position: relative;
+        cursor: pointer;
+        overflow: hidden;
+
+        .progress-bar-fill {
+          height: 100%;
+          background: #1db954;
+          border-radius: 6px;
+          transition: width 0.1s linear;
+        }
+      }
+    }
+
+    .action-buttons {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+
+      .control-btn {
+        background: transparent;
+        border: none;
+        color: #b3b3b3;
+        cursor: pointer;
+        transition: transform 0.15s ease, color 0.15s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        &:hover {
+          color: #ffffff;
+          transform: scale(1.1);
+        }
+
+        &.play-pause-big {
+          width: 60px;
+          height: 60px;
+          border-radius: 50%;
+          background: #1db954;
+          color: #000000;
+          box-shadow: 0 8px 24px rgba(29, 185, 84, 0.4);
+
+          &:hover {
+            transform: scale(1.06);
+            background: #1ed760;
+          }
+        }
+      }
+    }
+  }
+}
+
+// Animations
+@keyframes pulseAura {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scale(1.12);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(0.95);
+    opacity: 0.4;
+  }
+}
+
+@keyframes equalizeBar {
+  0% {
+    height: 6px;
+  }
+  100% {
+    height: 48px;
+  }
+}

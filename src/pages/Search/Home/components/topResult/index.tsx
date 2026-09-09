@@ -25,7 +25,7 @@ import type { Artist } from '../../../../../interfaces/artist';
 import type { Playlist } from '../../../../../interfaces/playlists';
 
 // Constants
-import { PLAYLIST_DEFAULT_IMAGE } from '../../../../../constants/spotify';
+import { PLAYLIST_DEFAULT_IMAGE, ARTISTS_DEFAULT_IMAGE } from '../../../../../constants/spotify';
 
 const Card = memo(
   ({

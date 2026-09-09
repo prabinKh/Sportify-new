@@ -78,8 +78,13 @@ const getArtists = (artists: Track['artists']) => {
 const ClickeableCover = (props: ComponentProps) => {
   const { song, onPlay, isCurrent, isPlaying } = props;
 
+  const handlePlayClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onPlay) onPlay();
+  };
+
   const button = (
-    <button className='image-button' onClick={onPlay}>
+    <button className='image-button' onClick={handlePlayClick}>
       {isPlaying && isCurrent ? <Pause /> : <Play />}
     </button>
   );
