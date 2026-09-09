@@ -12,6 +12,7 @@ from .apiview import (
     FavoriteTrackListAPIView, FavoriteTrackToggleAPIView,
     ListeningHistoryAPIView,
     FollowedArtistListAPIView, FollowArtistToggleAPIView, CheckFollowedArtistAPIView,
+    ArtistPlaylistsAPIView, SyncChannelAPIView,
 )
 
 urlpatterns = [
@@ -36,6 +37,8 @@ urlpatterns = [
     path('api/artists/', ArtistListAPIView.as_view(), name='api_artist_list'),
     path('api/artists/<int:pk>/', ArtistDetailAPIView.as_view(), name='api_artist_detail'),
     path('api/artists/<int:artist_id>/audios/', ArtistAudiosAPIView.as_view(), name='api_artist_audios'),
+    path('api/artists/<int:artist_id>/playlists/', ArtistPlaylistsAPIView.as_view(), name='api_artist_playlists'),
+    path('api/channels/<int:channel_id>/sync/', SyncChannelAPIView.as_view(), name='api_channel_sync'),
 
     # ── REST API: flat track list + search ────────────────────────────────────
     path('api/tracks/', AllLocalTracksAPIView.as_view(), name='api_all_tracks'),

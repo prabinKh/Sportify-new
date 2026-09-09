@@ -1,6 +1,6 @@
 import React, { FC, memo, useEffect, useMemo, useState, RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { FaMicrophone, FaUserCheck, FaMagnifyingGlass } from 'react-icons/fa6';
 import { Row, Col, Space } from 'antd';
 
@@ -20,8 +20,21 @@ export const ArtistsPage: FC<ArtistsPageProps> = memo(() => {
   const { t } = useTranslation(['navbar', 'home', 'profile']);
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const [activeTab, setActiveTab] = useState<'ALL' | 'FOLLOWED'>('ALL');
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const isFollowingQuery = searchParams.get('filter') === 'following';
+
+  const [activeTab, setActiveTab] = useState<'ALL' | 'FOLLOWED'>(isFollowingQuery ? 'FOLLOWED' : 'ALL');
+
+  useEffect(() => {
+    const filter = new URLSearchParams(location.search).get('filter');
+    if (filter === 'following') {
+      setActiveTab('FOLLOWED');
+    } else if (filter === 'all') {
+      setActiveTab('ALL');
+    }
+  }, [location.search]);
   const [search, setSearch] = useState('');
   const [allArtists, setAllArtists] = useState<Artist[]>([]);
   const [followedList, setFollowedList] = useState<Artist[]>([]);

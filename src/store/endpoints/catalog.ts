@@ -26,7 +26,7 @@ const catalogApi = api.injectEndpoints({
         return runQuery(async () => {
           const user = (getState() as RootState).auth.user;
 
-          const [artistRes, followingRes, topRes, albumsRes, otherRes] = await Promise.all([
+          const [artistRes, followingRes, topRes, albumsRes, otherRes, playlistsRes] = await Promise.all([
             artistService.fetchArtist(id),
             user
               ? userService.checkFollowingArtists([id])
@@ -37,6 +37,7 @@ const catalogApi = api.injectEndpoints({
               include_groups: 'album,single,appears_on,compilation' as any,
             }),
             artistService.fetchSimilarArtists(id),
+            artistService.fetchArtistPlaylists(id),
           ]);
 
           const tracks = (topRes.data as any).tracks as Track[];
@@ -60,6 +61,7 @@ const catalogApi = api.injectEndpoints({
               compilations: all.filter((a) => a.album_type === 'compilation'),
               appearsOn: [],
               otherArtists: otherRes.data.artists ?? [],
+              playlists: playlistsRes.data || [],
             } satisfies ArtistPageData,
           };
         });

@@ -29,6 +29,10 @@ class YouTubeChannelSerializer(serializers.ModelSerializer):
         model = YouTubeChannel
         fields = ['id', 'name', 'channel_id', 'created_at', 'profile_picture']
 
+    def validate_channel_id(self, value):
+        from .forms import clean_channel_id_value
+        return clean_channel_id_value(value)
+
     def get_profile_picture(self, obj):
         request = self.context.get('request')
         if obj.profile_picture:
@@ -104,10 +108,11 @@ class ArtistSerializer(serializers.ModelSerializer):
     audio_count = serializers.IntegerField(read_only=True)
     audio_files = serializers.SerializerMethodField()
     profile_picture = serializers.SerializerMethodField()
+    playlists = serializers.SerializerMethodField()
 
     class Meta:
         model = YouTubeChannel
-        fields = ['id', 'name', 'channel_id', 'profile_picture', 'audio_count', 'audio_files']
+        fields = ['id', 'name', 'channel_id', 'profile_picture', 'audio_count', 'audio_files', 'playlists']
 
     def get_profile_picture(self, obj):
         request = self.context.get('request')
@@ -116,8 +121,12 @@ class ArtistSerializer(serializers.ModelSerializer):
         return None
 
     def get_audio_files(self, obj):
-        audios = MediaFile.objects.filter(youtube_channel=obj).exclude(audio_file='')
+        audios = MediaFile.objects.filter(youtube_channel=obj).filter(audio_file__isnull=False).exclude(audio_file='')
         return ArtistAudioSerializer(audios, many=True, context=self.context).data
+
+    def get_playlists(self, obj):
+        pls = Playlist.objects.filter(channel=obj).order_by('-created_at')
+        return PlaylistSerializer(pls, many=True, context=self.context).data
 
 
 class LocalTrackSerializer(serializers.ModelSerializer):
@@ -159,12 +168,21 @@ class LocalTrackSerializer(serializers.ModelSerializer):
 
 
 class PlaylistSerializer(serializers.ModelSerializer):
-    tracks_count = serializers.IntegerField(source='tracks.count', read_only=True)
-    tracks = LocalTrackSerializer(many=True, read_only=True)
+    tracks_count = serializers.SerializerMethodField()
+    tracks = serializers.SerializerMethodField()
+    channel_id = serializers.IntegerField(source='channel.id', read_only=True, allow_null=True)
+    channel_name = serializers.CharField(source='channel.name', read_only=True, allow_null=True)
 
     class Meta:
         model = Playlist
-        fields = ['id', 'name', 'description', 'created_at', 'tracks_count', 'tracks']
+        fields = ['id', 'name', 'description', 'playlist_id', 'channel_id', 'channel_name', 'created_at', 'tracks_count', 'tracks']
+
+    def get_tracks(self, obj):
+        audios = obj.tracks.filter(audio_file__isnull=False).exclude(audio_file='')
+        return LocalTrackSerializer(audios, many=True, context=self.context).data
+
+    def get_tracks_count(self, obj):
+        return obj.tracks.filter(audio_file__isnull=False).exclude(audio_file='').count()
 
 
 class FavoriteTrackSerializer(serializers.ModelSerializer):

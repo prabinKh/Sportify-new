@@ -27,15 +27,17 @@ class MediaFile(models.Model):
 
     @property
     def is_downloadable(self):
-        """Only audio between 2 and 10 minutes gets downloaded."""
+        """Only audio between 2 and 10 minutes gets downloaded (>= 120s and < 600s)."""
         if self.duration_seconds is None:
             return False
-        return 120 <= self.duration_seconds <= 600
+        return 120 <= self.duration_seconds < 600
 
 
 class Playlist(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, default='')
+    channel = models.ForeignKey(YouTubeChannel, on_delete=models.CASCADE, null=True, blank=True, related_name='playlists')
+    playlist_id = models.CharField(max_length=255, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
     tracks = models.ManyToManyField(MediaFile, related_name='playlists', blank=True)
 
@@ -77,18 +79,35 @@ class FollowedArtist(models.Model):
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
+
+def _run_fetch_in_thread(channel_id):
+    from django.db import connection
+    try:
+        channel = YouTubeChannel.objects.filter(id=channel_id).first()
+        if channel:
+            from .utils import fetch_and_save_media_urls
+            fetch_and_save_media_urls(channel)
+    except Exception as e:
+        print(f"[ERROR] Background channel fetch failed: {e}")
+    finally:
+        connection.close()
+
+
 @receiver(post_save, sender=YouTubeChannel)
 def handle_channel_saved(sender, instance, created, **kwargs):
     if created:
-        from .utils import fetch_and_save_media_urls
         from .views import schedule_recurring_tasks_once
-        fetch_and_save_media_urls(instance)
+        import threading
+        threading.Thread(target=_run_fetch_in_thread, args=(instance.id,), daemon=True).start()
         schedule_recurring_tasks_once()
 
 
 @receiver(post_save, sender=MediaFile)
 def handle_media_file_saved(sender, instance, created, **kwargs):
     if created and not instance.audio_file:
-        from .utils import queue_media_download
-        queue_media_download(instance.id)
+        try:
+            from .utils import queue_media_download
+            queue_media_download(instance.id)
+        except Exception as e:
+            print(f"[WARN] Failed queuing download for media {instance.id}: {e}")
 

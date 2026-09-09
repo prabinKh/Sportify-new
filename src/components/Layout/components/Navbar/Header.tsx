@@ -10,6 +10,7 @@ import {
   FaUserPlus,
   FaHeart,
   FaMicrophone,
+  FaListUl,
 } from 'react-icons/fa6';
 
 // Redux
@@ -61,6 +62,12 @@ const Header = ({ opacity }: { opacity: number; title?: string }) => {
           icon: <FaUser style={{ fontSize: 14 }} />,
           label: t('Profile'),
           onClick: () => navigate(`/users/${user.id}`),
+        },
+        {
+          key: 'playlists',
+          icon: <FaListUl style={{ fontSize: 14, color: '#10b981' }} />,
+          label: 'Playlists',
+          onClick: () => navigate('/playlist'),
         },
         {
           key: 'artists',

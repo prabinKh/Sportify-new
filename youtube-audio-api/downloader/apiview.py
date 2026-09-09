@@ -21,7 +21,7 @@ class YouTubeChannelCreateAPIView(generics.CreateAPIView):
     permission_classes = [AllowAny]
 
 
-class ChannelListAPIView(generics.ListAPIView):
+class ChannelListAPIView(generics.ListCreateAPIView):
     queryset = YouTubeChannel.objects.all()
     serializer_class = YouTubeChannelSerializer
     permission_classes = [AllowAny]
@@ -38,7 +38,9 @@ class MediaFileListAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         channel_id = self.kwargs.get('channel_id')
-        return MediaFile.objects.filter(youtube_channel_id=channel_id)
+        return MediaFile.objects.filter(
+            youtube_channel_id=channel_id
+        ).filter(audio_file__isnull=False).exclude(audio_file='')
 
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
@@ -47,7 +49,7 @@ class MediaFileListAPIView(generics.ListAPIView):
 
 
 class MediaFileDetailAPIView(generics.RetrieveAPIView):
-    queryset = MediaFile.objects.all()
+    queryset = MediaFile.objects.filter(audio_file__isnull=False).exclude(audio_file='')
     serializer_class = MediaFileSerializer
     permission_classes = [AllowAny]
 
@@ -58,7 +60,7 @@ class MediaFileDetailAPIView(generics.RetrieveAPIView):
 
 
 class AudioFileListAPIView(generics.ListAPIView):
-    queryset = MediaFile.objects.exclude(audio_file='')
+    queryset = MediaFile.objects.filter(audio_file__isnull=False).exclude(audio_file='')
     serializer_class = MediaFileSerializer
     permission_classes = [AllowAny]
 
@@ -80,7 +82,7 @@ class ArtistListAPIView(generics.ListAPIView):
     def get_queryset(self):
         return (
             YouTubeChannel.objects
-            .annotate(audio_count=Count('media_files', filter=~Q(media_files__audio_file='')))
+            .annotate(audio_count=Count('media_files', filter=~Q(media_files__audio_file='') & Q(media_files__audio_file__isnull=False)))
             .filter(audio_count__gt=0)
             .order_by('id')
         )
@@ -99,7 +101,7 @@ class ArtistDetailAPIView(generics.RetrieveAPIView):
     def get_queryset(self):
         return (
             YouTubeChannel.objects
-            .annotate(audio_count=Count('media_files', filter=~Q(media_files__audio_file='')))
+            .annotate(audio_count=Count('media_files', filter=~Q(media_files__audio_file='') & Q(media_files__audio_file__isnull=False)))
             .filter(audio_count__gt=0)
         )
 
@@ -119,7 +121,7 @@ class ArtistAudiosAPIView(generics.ListAPIView):
         artist_id = self.kwargs.get('artist_id')
         return MediaFile.objects.filter(
             youtube_channel_id=artist_id
-        ).exclude(audio_file='').order_by('-downloaded_at')
+        ).filter(audio_file__isnull=False).exclude(audio_file='').order_by('-downloaded_at')
 
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
@@ -138,6 +140,7 @@ class AllLocalTracksAPIView(generics.ListAPIView):
     def get_queryset(self):
         return (
             MediaFile.objects
+            .filter(audio_file__isnull=False)
             .exclude(audio_file='')
             .select_related('youtube_channel')
             .order_by('-downloaded_at')
@@ -159,6 +162,7 @@ class SearchLocalTracksAPIView(generics.ListAPIView):
         q = self.request.query_params.get('q', '').strip()
         qs = (
             MediaFile.objects
+            .filter(audio_file__isnull=False)
             .exclude(audio_file='')
             .select_related('youtube_channel')
             .order_by('-downloaded_at')
@@ -211,9 +215,9 @@ class PlaylistTrackAddRemoveAPIView(APIView):
 
         track_id = request.data.get('track_id')
         try:
-            track = MediaFile.objects.get(pk=track_id)
+            track = MediaFile.objects.filter(audio_file__isnull=False).exclude(audio_file='').get(pk=track_id)
         except MediaFile.DoesNotExist:
-            return Response({'error': 'Track not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'error': 'Track not found or has no audio'}, status=status.HTTP_404_NOT_FOUND)
 
         playlist.tracks.add(track)
         serializer = PlaylistSerializer(playlist, context={'request': request})
@@ -239,10 +243,18 @@ class PlaylistTrackAddRemoveAPIView(APIView):
 # ── Favorites API Views ────────────────────────────────────────────────────────
 
 class FavoriteTrackListAPIView(generics.ListAPIView):
-    queryset = FavoriteTrack.objects.select_related('media_file', 'media_file__youtube_channel').order_by('-created_at')
     serializer_class = FavoriteTrackSerializer
     permission_classes = [AllowAny]
     pagination_class = None
+
+    def get_queryset(self):
+        return (
+            FavoriteTrack.objects
+            .filter(media_file__audio_file__isnull=False)
+            .exclude(media_file__audio_file='')
+            .select_related('media_file', 'media_file__youtube_channel')
+            .order_by('-created_at')
+        )
 
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
@@ -256,9 +268,9 @@ class FavoriteTrackToggleAPIView(APIView):
     def post(self, request):
         track_id = request.data.get('track_id')
         try:
-            track = MediaFile.objects.get(pk=track_id)
+            track = MediaFile.objects.filter(audio_file__isnull=False).exclude(audio_file='').get(pk=track_id)
         except MediaFile.DoesNotExist:
-            return Response({'error': 'Track not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'error': 'Track not found or has no audio'}, status=status.HTTP_404_NOT_FOUND)
 
         fav, created = FavoriteTrack.objects.get_or_create(media_file=track)
         if not created:
@@ -275,7 +287,13 @@ class ListeningHistoryAPIView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        history = ListeningHistory.objects.select_related('media_file', 'media_file__youtube_channel').order_by('-played_at')[:50]
+        history = (
+            ListeningHistory.objects
+            .filter(media_file__audio_file__isnull=False)
+            .exclude(media_file__audio_file='')
+            .select_related('media_file', 'media_file__youtube_channel')
+            .order_by('-played_at')[:50]
+        )
         serializer = ListeningHistorySerializer(history, many=True, context={'request': request})
         return Response(serializer.data)
 
@@ -337,3 +355,37 @@ class CheckFollowedArtistAPIView(APIView):
         )
         result = [int(i) in followed_ids if i.isdigit() else False for i in ids]
         return Response(result)
+
+
+class ArtistPlaylistsAPIView(generics.ListAPIView):
+    """Playlists belonging to a specific artist."""
+    serializer_class = PlaylistSerializer
+    permission_classes = [AllowAny]
+    pagination_class = None
+
+    def get_queryset(self):
+        artist_id = self.kwargs.get('artist_id')
+        return Playlist.objects.filter(channel_id=artist_id).order_by('-created_at')
+
+    def get_serializer_context(self):
+        ctx = super().get_serializer_context()
+        ctx['request'] = self.request
+        return ctx
+
+
+class SyncChannelAPIView(APIView):
+    """Trigger background re-sync of a channel (/videos, home, /playlists)."""
+    permission_classes = [AllowAny]
+
+    def post(self, request, channel_id):
+        try:
+            channel = YouTubeChannel.objects.get(pk=channel_id)
+        except YouTubeChannel.DoesNotExist:
+            return Response({'error': 'Channel not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        import threading
+        t = threading.Thread(target=fetch_and_save_media_urls, args=(channel,))
+        t.daemon = True
+        t.start()
+
+        return Response({'status': 'syncing', 'channel_id': channel.id, 'channel_name': channel.name})

@@ -9,6 +9,7 @@ import type { Album } from '../../interfaces/albums';
 import type { Pagination } from '../../interfaces/api';
 import type { Artist } from '../../interfaces/artist';
 import type { Track, TrackWithSave } from '../../interfaces/track';
+import type { Playlist } from '../../interfaces/playlists';
 import { RootState } from '../store';
 
 // Shape produced by the RTK Query `getArtistPage` endpoint and mirrored into this slice so the
@@ -22,6 +23,7 @@ export interface ArtistPageData {
   appearsOn: Album[];
   compilations: Album[];
   otherArtists: Artist[];
+  playlists: Playlist[];
 }
 
 const initialState: {
@@ -29,6 +31,7 @@ const initialState: {
   singles: Album[];
   appearsOn: Album[];
   compilations: Album[];
+  playlists: Playlist[];
 
   otherArtists: Artist[];
 
@@ -42,6 +45,7 @@ const initialState: {
   albums: [],
   artist: null,
   otherArtists: [],
+  playlists: [],
 
   loading: true,
   following: false,
@@ -121,6 +125,7 @@ const artistSlice = createSlice({
         state.singles = [];
         state.appearsOn = [];
         state.compilations = [];
+        state.playlists = [];
         state.topTracks = [];
         state.following = false;
         state.loading = true;
@@ -145,6 +150,7 @@ const artistSlice = createSlice({
       state.appearsOn = p.appearsOn;
       state.compilations = p.compilations;
       state.otherArtists = p.otherArtists;
+      state.playlists = p.playlists || [];
       state.loading = false;
     },
   },

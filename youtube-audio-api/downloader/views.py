@@ -40,7 +40,7 @@ def add_channel(request):
 @login_required
 def media_list(request, channel_id):
     channel = YouTubeChannel.objects.get(id=channel_id)
-    media_files = channel.media_files.all()
+    media_files = channel.media_files.filter(audio_file__isnull=False).exclude(audio_file='')
     return render(request, 'downloader/media_list.html', {
         'channel': channel,
         'media_files': media_files

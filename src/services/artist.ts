@@ -1,5 +1,5 @@
 import axios from '../axios';
-import { formatLocalArtist, formatLocalTrack } from '../utils';
+import { formatLocalArtist, formatLocalTrack, formatLocalPlaylist } from '../utils';
 
 const fetchArtist = async (id: string) => {
   const res = await axios.get(`/api/artists/${id}/`);
@@ -52,11 +52,19 @@ const fetchSimilarArtists = async (_id: string) => {
   return { data: { artists: all.slice(0, 5) } };
 };
 
+const fetchArtistPlaylists = async (id: string) => {
+  const res = await axios.get(`/api/artists/${id}/playlists/`).catch(() => ({ data: [] }));
+  const playlists = (res.data || []).map(formatLocalPlaylist).filter(Boolean);
+  return { data: playlists };
+};
+
 export const artistService = {
   fetchArtist,
   fetchArtists,
   fetchArtistAlbums,
   fetchArtistTopTracks,
   fetchSimilarArtists,
+  fetchArtistPlaylists,
 };
+
 
