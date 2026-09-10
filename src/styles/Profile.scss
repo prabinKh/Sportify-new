@@ -87,6 +87,10 @@
           position: relative;
           width: inherit;
 
+          &.editable-avatar:hover .profile-img-hover-overlay {
+            opacity: 1 !important;
+          }
+
           img {
             -o-object-fit: cover;
             object-fit: cover;
@@ -148,6 +152,10 @@
           width: 100%;
           word-break: break-word;
           text-overflow: ellipsis;
+
+          &:hover .name-edit-icon {
+            color: #1db954 !important;
+          }
 
           h1 {
             visibility: visible;

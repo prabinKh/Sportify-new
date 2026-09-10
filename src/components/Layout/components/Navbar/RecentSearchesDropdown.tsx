@@ -72,11 +72,6 @@ const RecentSearchRow = memo(
     const onPlay = (event: React.MouseEvent) => {
       event.stopPropagation();
 
-      if (!user) {
-        dispatch(uiActions.openLoginModal(image));
-        return;
-      }
-
       if (isPlaying) {
         playerService.pausePlayback();
         return;

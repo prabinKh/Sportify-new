@@ -4,31 +4,40 @@ export const setLocalStorageWithExpiry = (
   value: any,
   ttl: number = 1000 * 60 * 60
 ) => {
-  const now = new Date();
-
-  // `item` is an object which contains the original value
-  // as well as the time when it's supposed to expire
-  const item = {
-    value: value,
-    expiry: now.getTime() + ttl,
-  };
-  localStorage.setItem(key, JSON.stringify(item));
+  try {
+    const now = new Date();
+    const item = {
+      value: value,
+      expiry: now.getTime() + ttl,
+    };
+    localStorage.setItem(key, JSON.stringify(item));
+  } catch {
+    // localStorage might be disabled or full
+  }
 };
 
-export const getFromLocalStorageWithExpiry = (key: string) => {
-  const itemStr = localStorage.getItem(key);
-  // if the item doesn't exist, return null
-  if (!itemStr) {
+export const getFromLocalStorageWithExpiry = (key: string): any => {
+  try {
+    const itemStr = localStorage.getItem(key);
+    if (!itemStr) {
+      return null;
+    }
+    try {
+      const item = JSON.parse(itemStr);
+      if (item && typeof item === 'object' && 'expiry' in item) {
+        const now = new Date();
+        if (now.getTime() > item.expiry) {
+          localStorage.removeItem(key);
+          return null;
+        }
+        return item.value;
+      }
+      return item;
+    } catch {
+      // If it's a plain string (like access token), safely return it
+      return itemStr;
+    }
+  } catch {
     return null;
   }
-  const item = JSON.parse(itemStr);
-  const now = new Date();
-  // compare the expiry time of the item with the current time
-  if (now.getTime() > item.expiry) {
-    // If the item is expired, delete the item from storage
-    // and return null
-    localStorage.removeItem(key);
-    return null;
-  }
-  return item.value;
 };

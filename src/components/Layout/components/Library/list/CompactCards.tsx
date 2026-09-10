@@ -128,11 +128,8 @@ const AlbumCardShort = memo(({ album }: { album: Album }) => {
   const contextUri = useAppSelector((state) => state.spotify.state?.context.uri);
 
   const onClick = useCallback(() => {
-    if (!userId) {
-      return dispatch(uiActions.openLoginModal(album.images[0].url));
-    }
     navigate(`/album/${album.id}`);
-  }, [userId, navigate, album.id, album.images, dispatch]);
+  }, [navigate, album.id]);
 
   return (
     <AlbumActionsWrapper album={album} trigger={['contextMenu']}>

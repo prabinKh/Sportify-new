@@ -15,15 +15,12 @@ import { uiActions } from '../../../../store/slices/ui';
 const FollowArtist: FC<{ id: string; onToggle: () => void }> = ({ id, onToggle }) => {
   const { t } = useTranslation(['artist']);
   const dispatch = useAppDispatch();
-  const user = useAppSelector(
-    (state) => !!state.auth.user,
-    (prev, next) => prev === next
-  );
+  const user = useAppSelector((state) => state.auth.user);
   const [loading, setLoading] = useState(false);
 
   const handleFollow = useCallback(async () => {
-    if (!user) {
-      return dispatch(uiActions.openLoginTooltip());
+    if (!user || user.id === 'guest') {
+      return dispatch(uiActions.openLoginModal('https://cdn-icons-png.flaticon.com/512/3135/3135715.png'));
     }
     setLoading(true);
     try {
@@ -77,16 +74,13 @@ const FollowArtist: FC<{ id: string; onToggle: () => void }> = ({ id, onToggle }
 const UnfollowArtist: FC<{ id: string; onToggle: () => void }> = ({ id, onToggle }) => {
   const { t } = useTranslation(['artist']);
   const dispatch = useAppDispatch();
-  const user = useAppSelector(
-    (state) => !!state.auth.user,
-    (prev, next) => prev === next
-  );
+  const user = useAppSelector((state) => state.auth.user);
   const [loading, setLoading] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
   const handleUnfollow = useCallback(async () => {
-    if (!user) {
-      return dispatch(uiActions.openLoginTooltip());
+    if (!user || user.id === 'guest') {
+      return dispatch(uiActions.openLoginModal('https://cdn-icons-png.flaticon.com/512/3135/3135715.png'));
     }
     setLoading(true);
     try {

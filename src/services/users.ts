@@ -69,14 +69,19 @@ const checkFollowingUsers = async (ids: string[]) => {
   return { data: ids.map(() => false) };
 };
 
-const getUser = async (_id: string) => {
-  return {
-    data: {
-      id: 'youtube_user',
-      display_name: 'YouTube Listener',
-      images: [{ url: 'https://cdn-icons-png.flaticon.com/512/1384/1384060.png' }],
-    },
-  };
+const getUser = async (id: string) => {
+  try {
+    const res = await axios.get(`/api/accounts/users/${id}/`);
+    return res;
+  } catch {
+    return {
+      data: {
+        id: id || 'youtube_user',
+        display_name: id || 'YouTube Listener',
+        images: [{ url: 'https://cdn-icons-png.flaticon.com/512/1384/1384060.png' }],
+      },
+    };
+  }
 };
 
 const unfollowPlaylist = async (_playlistId: string) => {

@@ -4,8 +4,6 @@ import './styles/App.scss';
 // Utils
 import i18next from 'i18next';
 import { FC, Suspense, lazy, memo, useCallback, useEffect, useMemo, useRef } from 'react';
-import { getFromLocalStorageWithExpiry } from './utils/localstorage';
-import { getRefreshToken } from './utils/spotify/login';
 
 // Components
 import { ConfigProvider } from 'antd';
@@ -16,16 +14,14 @@ import { Route, BrowserRouter as Router, Routes, useLocation } from 'react-route
 import { Provider } from 'react-redux';
 import { uiActions } from './store/slices/ui';
 import { PersistGate } from 'redux-persist/integration/react';
-import { authActions, loginToSpotify } from './store/slices/auth';
+import { authActions } from './store/slices/auth';
 import { persistor, store, useAppDispatch, useAppSelector } from './store/store';
 
 // Spotify
-import WebPlayback, { WebPlaybackProps } from './utils/spotify/webPlayback';
+import { playerService } from './services/player';
 
 // Pages
 import SearchContainer from './pages/Search/Container';
-import { playerService } from './services/player';
-import { Spinner } from './components/spinner/spinner';
 
 const Home = lazy(() => import('./pages/Home'));
 const Page404 = lazy(() => import('./pages/404'));
@@ -39,6 +35,11 @@ const PlaylistsPage = lazy(() => import('./pages/Playlists'));
 const ArtistDiscographyPage = lazy(() => import('./pages/Discography'));
 const TrackPage = lazy(() => import('./pages/Track'));
 const KaraokePage = lazy(() => import('./pages/Karaoke'));
+const AuthPage = lazy(() => import('./pages/Auth'));
+const RoomsPage = lazy(() => import('./pages/Rooms').then((m) => ({ default: m.RoomsPage })));
+const RoomView = lazy(() => import('./pages/Rooms/RoomView').then((m) => ({ default: m.RoomView })));
+const FriendsPage = lazy(() => import('./pages/Friends').then((m) => ({ default: m.FriendsPage })));
+const MessagesPage = lazy(() => import('./pages/Messages').then((m) => ({ default: m.MessagesPage })));
 
 const Profile = lazy(() => import('./pages/User/Home'));
 const ProfileTracks = lazy(() => import('./pages/User/Songs'));
@@ -63,22 +64,38 @@ window.addEventListener('resize', () => {
 const SpotifyContainer: FC<{ children: any }> = memo(({ children }) => {
   const dispatch = useAppDispatch();
 
-  const user = useAppSelector((state) => !!state.auth.user);
-  const requesting = useAppSelector((state) => state.auth.requesting);
-
   useEffect(() => {
     dispatch(authActions.fetchUser());
   }, [dispatch]);
 
-  if (!user) return <Spinner loading={requesting}>{children}</Spinner>;
-
   return <>{children}</>;
 });
+
+const LoadingFallback = () => (
+  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: '300px' }}>
+    <div className='spinner-container'>
+      <div className='sk-circle'>
+        <div className='sk-circle1 sk-child' />
+        <div className='sk-circle2 sk-child' />
+        <div className='sk-circle3 sk-child' />
+        <div className='sk-circle4 sk-child' />
+        <div className='sk-circle5 sk-child' />
+        <div className='sk-circle6 sk-child' />
+        <div className='sk-circle7 sk-child' />
+        <div className='sk-circle8 sk-child' />
+        <div className='sk-circle9 sk-child' />
+        <div className='sk-circle10 sk-child' />
+        <div className='sk-circle11 sk-child' />
+        <div className='sk-circle12 sk-child' />
+      </div>
+    </div>
+  </div>
+);
 
 const RoutesComponent = memo(() => {
   const location = useLocation();
   const container = useRef<HTMLDivElement>(null);
-  const user = useAppSelector((state) => !!state.auth.user);
+  const user = useAppSelector((state) => state.auth.user);
 
   useEffect(() => {
     if (container.current) {
@@ -87,72 +104,51 @@ const RoutesComponent = memo(() => {
   }, [location, container]);
 
   const routes = useMemo(
-    () =>
-      [
-        { path: '', element: <Home container={container} />, public: true },
-        { path: '/collection/tracks', element: <LikedSongsPage container={container} /> },
-        {
-          public: true,
-          path: '/playlist',
-          element: <PlaylistsPage container={container} />,
-        },
-        {
-          public: true,
-          path: '/playlists',
-          element: <PlaylistsPage container={container} />,
-        },
-        {
-          public: true,
-          path: '/playlist/:playlistId',
-          element: <PlaylistView container={container} />,
-        },
-        { path: '/album/:albumId', element: <AlbumView container={container} /> },
-        { public: true, path: '/track/:trackId', element: <TrackPage container={container} /> },
-        { public: true, path: '/karaoke/:trackId', element: <KaraokePage container={container} /> },
-        {
-          path: '/artist/:artistId/discography',
-          element: <ArtistDiscographyPage container={container} />,
-        },
-        { public: true, path: '/artist/:artistId', element: <ArtistPage container={container} /> },
-        { public: true, path: '/artists', element: <ArtistsPage container={container} /> },
-        { public: true, path: '/collection/artists', element: <ArtistsPage container={container} /> },
-        { public: true, path: '/users/:userId/artists', element: <ArtistsPage container={container} /> },
-        { path: '/users/:userId/playlists', element: <ProfilePlaylists container={container} /> },
-        { path: '/users/:userId/tracks', element: <ProfileTracks container={container} /> },
-        { path: '/users/:userId', element: <Profile container={container} /> },
-        { public: true, path: '/genre/:genreId', element: <GenrePage /> },
-        { public: true, path: '/search', element: <BrowsePage /> },
-        { path: '/recent-searches', element: <RecentlySearched /> },
-        {
-          public: true,
-          path: '/search/:search',
-          element: <SearchContainer container={container} />,
-          children: [
-            {
-              path: 'artists',
-              element: <SearchPageArtists container={container} />,
-            },
-            {
-              path: 'albums',
-              element: <SearchAlbums container={container} />,
-            },
-            {
-              path: 'playlists',
-              element: <SearchPlaylist container={container} />,
-            },
-            {
-              path: 'tracks',
-              element: <SearchTracks container={container} />,
-            },
-            {
-              path: '',
-              element: <SearchPage container={container} />,
-            },
-          ],
-        },
-        { path: '*', element: <Page404 /> },
-      ].filter((r) => (user ? true : r.public)),
-    [container, user]
+    () => [
+      { path: '/', element: <Home container={container} />, public: true },
+      { path: '', element: <Home container={container} />, public: true },
+      { public: true, path: '/login', element: <AuthPage container={container} defaultMode='login' /> },
+      { public: true, path: '/signup', element: <AuthPage container={container} defaultMode='register' /> },
+      { public: true, path: '/register', element: <AuthPage container={container} defaultMode='register' /> },
+      { public: true, path: '/rooms', element: <RoomsPage /> },
+      { public: true, path: '/room/:code', element: <RoomView /> },
+      { public: true, path: '/live-rooms', element: <RoomsPage /> },
+      { public: false, path: '/friends', element: <FriendsPage /> },
+      { public: false, path: '/messages', element: <MessagesPage /> },
+      { public: false, path: '/messages/:userId', element: <MessagesPage /> },
+      { public: true, path: '/collection/tracks', element: <LikedSongsPage container={container} /> },
+      { public: true, path: '/playlist', element: <PlaylistsPage container={container} /> },
+      { public: true, path: '/playlists', element: <PlaylistsPage container={container} /> },
+      { public: true, path: '/playlist/:playlistId', element: <PlaylistView container={container} /> },
+      { public: true, path: '/album/:albumId', element: <AlbumView container={container} /> },
+      { public: true, path: '/track/:trackId', element: <TrackPage container={container} /> },
+      { public: true, path: '/karaoke/:trackId', element: <KaraokePage container={container} /> },
+      { public: true, path: '/artist/:artistId/discography', element: <ArtistDiscographyPage container={container} /> },
+      { public: true, path: '/artist/:artistId', element: <ArtistPage container={container} /> },
+      { public: true, path: '/artists', element: <ArtistsPage container={container} /> },
+      { public: true, path: '/collection/artists', element: <ArtistsPage container={container} /> },
+      { public: true, path: '/users/:userId/artists', element: <ArtistsPage container={container} /> },
+      { public: true, path: '/users/:userId/playlists', element: <ProfilePlaylists container={container} /> },
+      { public: true, path: '/users/:userId/tracks', element: <ProfileTracks container={container} /> },
+      { public: true, path: '/users/:userId', element: <Profile container={container} /> },
+      { public: true, path: '/genre/:genreId', element: <GenrePage /> },
+      { public: true, path: '/search', element: <BrowsePage /> },
+      { public: true, path: '/recent-searches', element: <RecentlySearched /> },
+      {
+        public: true,
+        path: '/search/:search',
+        element: <SearchContainer container={container} />,
+        children: [
+          { path: 'artists', element: <SearchPageArtists container={container} /> },
+          { path: 'albums', element: <SearchAlbums container={container} /> },
+          { path: 'playlists', element: <SearchPlaylist container={container} /> },
+          { path: 'tracks', element: <SearchTracks container={container} /> },
+          { path: '', element: <SearchPage container={container} /> },
+        ],
+      },
+      { path: '*', element: <Page404 /> },
+    ],
+    [container]
   );
 
   return (
@@ -169,25 +165,27 @@ const RoutesComponent = memo(() => {
           width: '100%',
         }}
       >
-        <Routes>
-          {routes.map((route) => (
-            <Route
-              key={route.path}
-              path={route.path}
-              element={<Suspense>{route.element}</Suspense>}
-            >
-              {route?.children
-                ? route.children.map((child) => (
-                    <Route
-                      key={child.path}
-                      path={child.path}
-                      element={<Suspense>{child.element}</Suspense>}
-                    />
-                  ))
-                : undefined}
-            </Route>
-          ))}
-        </Routes>
+        <Suspense fallback={<LoadingFallback />}>
+          <Routes>
+            {routes.map((route) => (
+              <Route
+                key={route.path}
+                path={route.path}
+                element={route.element}
+              >
+                {route?.children
+                  ? route.children.map((child) => (
+                      <Route
+                        key={child.path}
+                        path={child.path}
+                        element={child.element}
+                      />
+                    ))
+                  : undefined}
+              </Route>
+            ))}
+          </Routes>
+        </Suspense>
       </div>
     </div>
   );
@@ -250,7 +248,7 @@ function App() {
   return (
     <ConfigProvider theme={{ token: { fontFamily: 'SpotifyMixUI' } }}>
       <Provider store={store}>
-        <PersistGate loading={null} persistor={persistor}>
+        <PersistGate loading={<LoadingFallback />} persistor={persistor}>
           <SpotifyContainer>
             <RootComponent />
           </SpotifyContainer>

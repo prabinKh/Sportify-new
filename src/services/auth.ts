@@ -39,6 +39,39 @@ const register = async (userData: { username: string; email?: string; password: 
   return res.data;
 };
 
+const updateProfile = async (profileData: {
+  display_name?: string;
+  avatar_url?: string;
+  email?: string;
+  avatar?: File;
+}) => {
+  const token = localStorage.getItem('access_token');
+  if (token) {
+    axios.defaults.headers.common['Authorization'] = 'Token ' + token;
+  }
+
+  if (profileData.avatar instanceof File) {
+    const formData = new FormData();
+    if (profileData.display_name) formData.append('display_name', profileData.display_name);
+    if (profileData.email) formData.append('email', profileData.email);
+    formData.append('avatar', profileData.avatar);
+
+    const res = await axios.patch('/api/accounts/me/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return res.data;
+  } else {
+    const res = await axios.patch('/api/accounts/me/', {
+      display_name: profileData.display_name,
+      avatar_url: profileData.avatar_url,
+      email: profileData.email,
+    });
+    return res.data;
+  }
+};
+
 const logout = async () => {
   try {
     await axios.post('/api/accounts/logout/');
@@ -51,5 +84,6 @@ export const authService = {
   fetchUser,
   login,
   register,
+  updateProfile,
   logout,
 };

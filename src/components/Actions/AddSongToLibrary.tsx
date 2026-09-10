@@ -18,11 +18,11 @@ const AddSongToLibrary: FC<{ id: string; onToggle: () => void; size?: number }> 
 }) => {
   const { t } = useTranslation(['playlist']);
   const dispatch = useAppDispatch();
-  const user = useAppSelector((state) => !!state.auth.user);
+  const user = useAppSelector((state) => state.auth.user);
 
   const handleAddToLibrary = () => {
-    if (!user) {
-      dispatch(uiActions.openLoginButton());
+    if (!user || user.id === 'guest') {
+      dispatch(uiActions.openLoginModal('https://cdn-icons-png.flaticon.com/512/1384/1384060.png'));
       return;
     }
     userService.saveTracks([id]).then(() => {
@@ -50,11 +50,11 @@ const DeleteSongFromLibrary: FC<{ id: string; onToggle: () => void; size?: numbe
 }) => {
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
-  const user = useAppSelector((state) => !!state.auth.user);
+  const user = useAppSelector((state) => state.auth.user);
 
   const handleDeleteFromLibrary = () => {
-    if (!user) {
-      dispatch(uiActions.openLoginButton());
+    if (!user || user.id === 'guest') {
+      dispatch(uiActions.openLoginModal('https://cdn-icons-png.flaticon.com/512/1384/1384060.png'));
       return;
     }
     userService.deleteTracks([id]).then(() => {

@@ -13,7 +13,10 @@ const axios = Axios.create({
 });
 
 if (access_token) {
-  axios.defaults.headers.common['Authorization'] = 'Bearer ' + access_token;
+  axios.defaults.headers.common['Authorization'] =
+    access_token.startsWith('Token ') || access_token.startsWith('Bearer ')
+      ? access_token
+      : `Token ${access_token}`;
 }
 
 // --- Global concurrency limiter --------------------------------------------------------------
@@ -58,6 +61,14 @@ const cacheKeyFor = (config: any) =>
   `${config.url}?${JSON.stringify(config.params || {})}`;
 
 axios.interceptors.request.use(async (config) => {
+  const currentToken = localStorage.getItem('access_token');
+  if (currentToken && !config.headers['Authorization']) {
+    config.headers['Authorization'] =
+      currentToken.startsWith('Token ') || currentToken.startsWith('Bearer ')
+        ? currentToken
+        : `Token ${currentToken}`;
+  }
+
   await acquireSlot();
 
   if (isCacheableGet(config)) {

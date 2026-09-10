@@ -14,20 +14,36 @@ interface ProfilePageProps {
 }
 
 export const ProfileContainer: FC<ProfilePageProps> = (props) => {
-  const user = useAppSelector((state) => state.profile.user);
+  const profileUser = useAppSelector((state) => state.profile.user);
+  const authUser = useAppSelector((state) => state.auth.user);
+  const user = profileUser || authUser;
 
   const ref = useRef<HTMLDivElement>(null);
   const [color, setColor] = useState<string>(DEFAULT_PAGE_COLOR);
 
   useEffect(() => {
-    if (user && user.images?.length) {
-      getImageAnalysis2(user.images[0].url).then((c) => {
-        const color = tinycolor(c);
-        while (color.isLight()) color.darken(10);
-        setColor(color.darken(20).toString());
-      });
+    const imgUrl = user?.images?.[0]?.url || (user as any)?.avatar_url;
+    if (imgUrl) {
+      getImageAnalysis2(imgUrl)
+        .then((c) => {
+          let col = tinycolor(c);
+          if (!col.isValid()) {
+            col = tinycolor(DEFAULT_PAGE_COLOR);
+          }
+          let safety = 0;
+          while (col.isLight() && safety < 8) {
+            col = col.darken(10);
+            safety++;
+          }
+          setColor(col.darken(20).toHexString());
+        })
+        .catch(() => {
+          setColor(DEFAULT_PAGE_COLOR);
+        });
+    } else {
+      setColor(DEFAULT_PAGE_COLOR);
     }
-  }, [setColor, user]);
+  }, [user]);
 
   return (
     <div className='Profile-section' ref={ref}>

@@ -13,9 +13,9 @@ import { useTranslation } from 'react-i18next';
 import { playlistService } from '../../../../services/playlists';
 
 // Redux
-import { fetchMyPlaylists } from '../../../../store/slices/yourLibrary';
 import { useAppDispatch, useAppSelector } from '../../../../store/store';
 import { uiActions } from '../../../../store/slices/ui';
+import { createPlaylistModalActions } from '../../../../store/slices/createPlaylistModal';
 
 export const AddPlaylistButton = memo(() => {
   const dispatch = useAppDispatch();
@@ -28,12 +28,10 @@ export const AddPlaylistButton = memo(() => {
   const { t } = useTranslation(['navbar']);
 
   const onClick = () => {
-    if (!user) return dispatch(uiActions.openLoginTooltip());
-    playlistService.createPlaylist(user?.id!, { name: t('My Playlist') }).then((playlist) => {
-      message.success(t('Playlist created'));
-      dispatch(fetchMyPlaylists());
-      navigate(`/playlist/${playlist.data.id}`);
-    });
+    if (!user || user.id === 'guest') {
+      return dispatch(uiActions.openLoginModal('https://cdn-icons-png.flaticon.com/512/1384/1384060.png'));
+    }
+    dispatch(createPlaylistModalActions.openCreatePlaylistModal());
   };
 
   return (

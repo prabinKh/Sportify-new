@@ -28,12 +28,12 @@ export const ArtistActionsWrapper: FC<ArtistActionsWrapperProps> = memo((props) 
   const { t } = useTranslation(['playlist']);
 
   const dispatch = useAppDispatch();
-  const user = useAppSelector((state) => !!state.auth.user);
+  const user = useAppSelector((state) => state.auth.user);
   const myArtists = useAppSelector((state) => state.yourLibrary.myArtists);
 
   const handleUserValidation = useCallback(() => {
-    if (!user) {
-      dispatch(uiActions.openLoginTooltip());
+    if (!user || user.id === 'guest') {
+      dispatch(uiActions.openLoginModal('https://cdn-icons-png.flaticon.com/512/3135/3135715.png'));
       return false;
     }
     return true;

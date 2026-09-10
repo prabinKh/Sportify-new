@@ -27,10 +27,6 @@ export const PlayCircle: FC<PlayCircleProps> = ({ size = 20, big, isCurrent, con
         e.stopPropagation();
       }
 
-      if (!user && image) {
-        return dispatch(uiActions.openLoginModal(image));
-      }
-
       if (isCurrent && !paused) {
         return playerService.pausePlayback().then();
       }
@@ -39,7 +35,7 @@ export const PlayCircle: FC<PlayCircleProps> = ({ size = 20, big, isCurrent, con
         : playerService.startPlayback(context);
       request.then();
     },
-    [user, image, isCurrent, paused, context, dispatch]
+    [isCurrent, paused, context]
   );
 
   return (

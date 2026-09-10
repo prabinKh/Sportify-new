@@ -172,10 +172,25 @@ class PlaylistSerializer(serializers.ModelSerializer):
     tracks = serializers.SerializerMethodField()
     channel_id = serializers.IntegerField(source='channel.id', read_only=True, allow_null=True)
     channel_name = serializers.CharField(source='channel.name', read_only=True, allow_null=True)
+    owner_id = serializers.IntegerField(source='user.id', read_only=True, allow_null=True)
+    owner_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Playlist
-        fields = ['id', 'name', 'description', 'playlist_id', 'channel_id', 'channel_name', 'created_at', 'tracks_count', 'tracks']
+        fields = [
+            'id', 'name', 'description', 'playlist_id', 'is_public',
+            'channel_id', 'channel_name', 'owner_id', 'owner_name',
+            'created_at', 'tracks_count', 'tracks'
+        ]
+
+    def get_owner_name(self, obj):
+        if obj.user:
+            if hasattr(obj.user, 'profile') and obj.user.profile.display_name:
+                return obj.user.profile.display_name
+            return obj.user.first_name or obj.user.username
+        if obj.channel:
+            return obj.channel.name
+        return "Sportify"
 
     def get_tracks(self, obj):
         audios = obj.tracks.filter(audio_file__isnull=False).exclude(audio_file='')

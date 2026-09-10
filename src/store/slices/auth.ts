@@ -78,6 +78,21 @@ export const registerUser = createAsyncThunk(
   }
 );
 
+export const updateUserProfile = createAsyncThunk(
+  'auth/updateUserProfile',
+  async (
+    profileData: { display_name?: string; avatar_url?: string; email?: string; avatar?: File },
+    thunkAPI
+  ) => {
+    try {
+      const data = await authService.updateProfile(profileData);
+      return data;
+    } catch (err: any) {
+      return thunkAPI.rejectWithValue(err.response?.data?.error || err.response?.data || 'Failed to update profile');
+    }
+  }
+);
+
 export const performLogout = createAsyncThunk(
   'auth/performLogout',
   async (_, thunkAPI) => {
@@ -133,9 +148,14 @@ const authSlice = createSlice({
       }
       state.requesting = false;
     });
+    builder.addCase(updateUserProfile.fulfilled, (state, action) => {
+      if (action.payload.user) {
+        state.user = action.payload.user;
+      }
+    });
   },
 });
 
-export const authActions = { ...authSlice.actions, loginToSpotify, fetchUser, loginUser, registerUser, performLogout };
+export const authActions = { ...authSlice.actions, loginToSpotify, fetchUser, loginUser, registerUser, updateUserProfile, performLogout };
 
 export default authSlice.reducer;

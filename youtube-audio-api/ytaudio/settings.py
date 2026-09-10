@@ -44,6 +44,8 @@ INSTALLED_APPS = [
 
     'downloader',
     'accounts',
+    'social',
+    'rooms',
 ]
 
 MIDDLEWARE = [

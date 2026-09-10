@@ -199,25 +199,9 @@ const Artists = ({ song, isList }: ComponentProps) => {
 };
 
 const Album = ({ song }: ComponentProps) => {
-  const navigate = useNavigate();
-  const dispatch = useAppDispatch();
-  const user = useAppSelector((state) => !!state.auth.user);
-
-  const onNavigate = useCallback(
-    (e: any) => {
-      if (e) e.stopPropagation();
-      if (e) e.preventDefault();
-      if (!user) {
-        return dispatch(uiActions.openLoginModal(song.album.images[0].url));
-      }
-      navigate(`/album/${song.album.id}`);
-    },
-    [user, navigate, song.album.id, song.album.images, dispatch]
-  );
-
   return (
     <p className='text-left tablet-hidden' style={{ flex: 5 }}>
-      <Link to={`/album/${song.album.id}`} onClick={onNavigate}>
+      <Link to={`/album/${song.album.id}`}>
         {song.album.name}
       </Link>
     </p>
@@ -368,9 +352,6 @@ export const SongView = (props: SongViewProps) => {
   const isList = selectedView === 'LIST';
 
   const onClick = useCallback(() => {
-    if (!user) {
-      return dispatch(uiActions.openLoginModal(song.album?.images?.[0]?.url || ''));
-    }
     if (isCurrent && isPlaying) {
       return playerService.pausePlayback();
     }
@@ -378,7 +359,7 @@ export const SongView = (props: SongViewProps) => {
       return playerService.startPlayback();
     }
     return playerService.startPlayback({ track: song, ...context });
-  }, [user, isCurrent, isPlaying, context, dispatch, song]);
+  }, [isCurrent, isPlaying, context, song]);
 
   return (
     <TrackActionsWrapper

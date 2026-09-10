@@ -17,6 +17,7 @@ import { useAppDispatch, useAppSelector } from '../../store/store';
 import { playlistService } from '../../services/playlists';
 import { fetchMyPlaylists } from '../../store/slices/yourLibrary';
 import { uiActions } from '../../store/slices/ui';
+import { createPlaylistModalActions } from '../../store/slices/createPlaylistModal';
 import { GridItemList } from '../../components/Lists/list';
 import { PlaylistCard } from '../../components/Lists/GridCards';
 import type { Playlist } from '../../interfaces/playlists';
@@ -90,13 +91,10 @@ export const PlaylistsPage: FC<PlaylistsPageProps> = memo(() => {
 
   // Handle Create Playlist
   const handleCreatePlaylist = () => {
-    if (!user) return dispatch(uiActions.openLoginTooltip());
-    playlistService.createPlaylist(user.id, { name: 'My Playlist' }).then((res) => {
-      message.success(t('Playlist created'));
-      dispatch(fetchMyPlaylists());
-      loadPlaylists();
-      navigate(`/playlist/${res.data.id}`);
-    });
+    if (!user || user.id === 'guest') {
+      return dispatch(uiActions.openLoginModal('https://cdn-icons-png.flaticon.com/512/1384/1384060.png'));
+    }
+    dispatch(createPlaylistModalActions.openCreatePlaylistModal());
   };
 
   // Filtered lists based on search query

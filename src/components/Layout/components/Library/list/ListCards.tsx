@@ -118,10 +118,12 @@ const CardList = (props: CardShortProps) => {
   );
 
   return (
-    <button
+    <div
+      role='button'
+      tabIndex={0}
       onClick={onClick}
       className='library-card'
-      style={{ borderRadius: 10 }}
+      style={{ borderRadius: 10, cursor: 'pointer' }}
       onDoubleClick={props.onDoubleClick}
     >
       <div className={`image p-2 h-full items-center ${props.rounded ? 'rounded' : ''}`}>
@@ -175,7 +177,7 @@ const CardList = (props: CardShortProps) => {
           {isCurrent ? <SpeakerIcon fill='#1db954' height={16} width={16} /> : null}
         </div>
       </div>
-    </button>
+    </div>
   );
 };
 
@@ -228,11 +230,8 @@ export const AlbumCardShort = memo(({ album }: { album: Album }) => {
   const contextUri = useAppSelector((state) => state.spotify.state?.context.uri);
 
   const onClick = useCallback(() => {
-    if (!userId) {
-      return dispatch(uiActions.openLoginModal(album.images[0].url));
-    }
     navigate(`/album/${album.id}`);
-  }, [userId, navigate, album.id, album.images, dispatch]);
+  }, [navigate, album.id]);
 
   return (
     <AlbumActionsWrapper album={album} trigger={['contextMenu']}>

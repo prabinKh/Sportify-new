@@ -58,11 +58,6 @@ export const EpisodeCard: FC<EpisodeCardProps> = memo(({ episode }) => {
     (e: MouseEvent) => {
       e.stopPropagation();
 
-      if (!user && imageUrl) {
-        dispatch(uiActions.openLoginModal(imageUrl));
-        return;
-      }
-
       if (isCurrent && !paused) {
         playerService.pausePlayback();
         return;

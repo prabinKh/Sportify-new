@@ -177,11 +177,8 @@ export const AlbumCard = ({
   const user = useAppSelector((state) => state.auth.user);
 
   const onNavigate = useCallback(() => {
-    if (!user) {
-      return dispatch(uiActions.openLoginModal(item.images[0].url));
-    }
     navigate(`/album/${item.id}`);
-  }, [user, navigate, item.id, item.images, dispatch]);
+  }, [navigate, item.id]);
 
   const title = item.name;
 

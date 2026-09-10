@@ -156,13 +156,16 @@ const createPlaylist = async (
   data: {
     name: string;
     public?: boolean;
+    is_public?: boolean;
     collaborative?: boolean;
     description?: string;
   }
 ) => {
+  const is_public = data.is_public !== undefined ? data.is_public : (data.public !== undefined ? data.public : true);
   const res = await axios.post('/api/playlists/', {
     name: data.name || 'New Playlist',
     description: data.description || '',
+    is_public: is_public,
   });
   return { data: formatLocalPlaylist(res.data) };
 };

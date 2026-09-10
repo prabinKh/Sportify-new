@@ -1,3 +1,6 @@
+import os
+import uuid
+from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -86,5 +89,75 @@ class MeView(APIView):
             'username': 'guest',
             'display_name': 'Guest Listener',
             'email': 'guest@sportify.local',
+            'images': [{'url': 'https://cdn-icons-png.flaticon.com/512/1384/1384060.png'}]
+        })
+
+    def patch(self, request):
+        if not request.user.is_authenticated:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        user = request.user
+        profile, _ = UserProfile.objects.get_or_create(user=user, defaults={'display_name': user.username})
+
+        data = request.data
+
+        # Update display name
+        if 'display_name' in data and data['display_name'].strip():
+            profile.display_name = data['display_name'].strip()
+
+        # Update avatar URL
+        if 'avatar_url' in data and data['avatar_url'].strip():
+            profile.avatar_url = data['avatar_url'].strip()
+
+        # Handle uploaded file
+        if 'avatar' in request.FILES:
+            avatar_file = request.FILES['avatar']
+            ext = os.path.splitext(avatar_file.name)[1]
+            filename = f"avatar_{user.id}_{uuid.uuid4().hex[:8]}{ext}"
+            avatar_dir = os.path.join(settings.MEDIA_ROOT, 'avatars')
+            os.makedirs(avatar_dir, exist_ok=True)
+            file_path = os.path.join(avatar_dir, filename)
+
+            with open(file_path, 'wb+') as destination:
+                for chunk in avatar_file.chunks():
+                    destination.write(chunk)
+
+            profile.avatar_url = f"/media/avatars/{filename}"
+
+        # Update email
+        if 'email' in data:
+            user.email = data['email'].strip()
+            user.save(update_fields=['email'])
+
+        profile.save()
+
+        return Response({
+            'message': 'Profile updated successfully',
+            'user': UserSerializer(user).data
+        })
+
+    def put(self, request):
+        return self.patch(request)
+
+class PublicUserDetailView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, user_id):
+        # Look up by ID or username
+        user = None
+        if user_id.isdigit():
+            user = User.objects.filter(id=int(user_id)).first()
+        if not user:
+            user = User.objects.filter(username=user_id).first()
+
+        if user:
+            UserProfile.objects.get_or_create(user=user, defaults={'display_name': user.username})
+            return Response(UserSerializer(user).data)
+
+        # Fallback guest profile if not found
+        return Response({
+            'id': str(user_id),
+            'username': str(user_id),
+            'display_name': str(user_id).capitalize(),
             'images': [{'url': 'https://cdn-icons-png.flaticon.com/512/1384/1384060.png'}]
         })

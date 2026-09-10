@@ -10,6 +10,7 @@ import { LanguageModal } from '../Modals/LanguageModal';
 import { LibraryDrawer } from '../Drawers/LibraryDrawer';
 import { PlayingNowDrawer } from '../Drawers/PlayingNowDrawer';
 import { EditPlaylistModal } from '../Modals/EditPlaylistModal';
+import { CreatePlaylistModal } from '../Modals/CreatePlaylistModal';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 
 // Redux
@@ -75,6 +76,7 @@ export const AppLayout: FC<{ children: ReactElement }> = memo((props) => {
       <LibraryDrawer />
       <PlayingNowDrawer />
       <EditPlaylistModal />
+      <CreatePlaylistModal />
       <LoginModal />
 
       {/* Main Component */}
@@ -86,7 +88,7 @@ export const AppLayout: FC<{ children: ReactElement }> = memo((props) => {
           style={{
             overflow: 'hidden',
             height: `calc(100vh - ${
-              activeOnOtherDevice ? '141' : !user && isMobile ? '0' : '105'
+              activeOnOtherDevice ? '141' : !user && isMobile ? '0' : '120'
             }px)`,
           }}
         >

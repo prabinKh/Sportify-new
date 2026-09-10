@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 
 class YouTubeChannel(models.Model):
     name = models.CharField(max_length=255)
@@ -34,26 +35,34 @@ class MediaFile(models.Model):
 
 
 class Playlist(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='user_playlists')
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, default='')
     channel = models.ForeignKey(YouTubeChannel, on_delete=models.CASCADE, null=True, blank=True, related_name='playlists')
     playlist_id = models.CharField(max_length=255, blank=True, default='')
+    is_public = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     tracks = models.ManyToManyField(MediaFile, related_name='playlists', blank=True)
 
     def __str__(self):
-        return self.name
+        status = "Public" if self.is_public else "Private"
+        return f"{self.name} ({status})"
 
 
 class FavoriteTrack(models.Model):
-    media_file = models.OneToOneField(MediaFile, on_delete=models.CASCADE, related_name='favorite')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='favorite_tracks')
+    media_file = models.ForeignKey(MediaFile, on_delete=models.CASCADE, related_name='favorites')
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        unique_together = ('user', 'media_file')
+
     def __str__(self):
-        return f"Favorite: {self.media_file}"
+        return f"Favorite ({self.user}): {self.media_file}"
 
 
 class ListeningHistory(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='history_entries')
     media_file = models.ForeignKey(MediaFile, on_delete=models.CASCADE, related_name='history_entries')
     played_at = models.DateTimeField(auto_now_add=True)
 
@@ -65,14 +74,16 @@ class ListeningHistory(models.Model):
 
 
 class FollowedArtist(models.Model):
-    channel = models.OneToOneField(YouTubeChannel, on_delete=models.CASCADE, related_name='follow_entry')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='followed_artists')
+    channel = models.ForeignKey(YouTubeChannel, on_delete=models.CASCADE, related_name='follow_entries')
     followed_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['-followed_at']
+        unique_together = ('user', 'channel')
 
     def __str__(self):
-        return f"Followed: {self.channel.name}"
+        return f"Followed ({self.user}): {self.channel.name}"
 
 
 
@@ -110,4 +121,3 @@ def handle_media_file_saved(sender, instance, created, **kwargs):
             queue_media_download(instance.id)
         except Exception as e:
             print(f"[WARN] Failed queuing download for media {instance.id}: {e}")
-

@@ -93,7 +93,8 @@ export const formatLocalPlaylist = (playlist: any): any => {
     playlist.images?.[0]?.url ||
     'https://community.spotify.com/t5/image/serverpage/image-id/25294i28328C78821614C4';
 
-  const isOwn = !playlist.channel_id && (!playlist.owner?.id || playlist.owner?.id === 'youtube_user');
+  const isPublic = playlist.is_public !== undefined ? playlist.is_public : (playlist.public !== undefined ? playlist.public : true);
+  const isOwn = !playlist.channel_id;
 
   return {
     id: plId,
@@ -108,12 +109,15 @@ export const formatLocalPlaylist = (playlist: any): any => {
     },
     owner: playlist.channel_name
       ? { display_name: playlist.channel_name, id: String(playlist.channel_id) }
+      : playlist.owner_name
+      ? { display_name: playlist.owner_name, id: String(playlist.owner_id || '') }
       : (playlist.owner || { display_name: 'You', id: 'youtube_user' }),
     channel_id: playlist.channel_id,
     channel_name: playlist.channel_name,
     is_own: isOwn,
     collaborative: false,
-    public: true,
+    public: isPublic,
+    is_public: isPublic,
   };
 };
 

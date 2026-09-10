@@ -19,6 +19,7 @@ import { fetchQueue } from '../../store/slices/queue';
 import { useAppDispatch, useAppSelector } from '../../store/store';
 import { fetchMyPlaylists, yourLibraryActions } from '../../store/slices/yourLibrary';
 import { uiActions } from '../../store/slices/ui';
+import { createPlaylistModalActions } from '../../store/slices/createPlaylistModal';
 
 interface AlbumActionsWrapperProps {
   album: Album;
@@ -42,14 +43,14 @@ export const AlbumActionsWrapper: FC<AlbumActionsWrapperProps> = memo((props) =>
   }, [myAlbums, album.id]);
 
   const handleUserValidation = useCallback(
-    (button?: boolean) => {
-      if (!user) {
-        dispatch(button ? uiActions.openLoginButton() : uiActions.openLoginTooltip());
+    () => {
+      if (!user || user === 'guest') {
+        dispatch(uiActions.openLoginModal(album.images?.[0]?.url || 'https://cdn-icons-png.flaticon.com/512/1384/1384060.png'));
         return false;
       }
       return true;
     },
-    [dispatch, user]
+    [dispatch, user, album]
   );
 
   const options = useMemo(() => {
@@ -82,22 +83,16 @@ export const AlbumActionsWrapper: FC<AlbumActionsWrapperProps> = memo((props) =>
       key: 'new',
       onClick: async () => {
         if (!handleUserValidation()) return;
-        const {
-          data: { items: tracks },
-        } = await albumsService.fetchAlbumTracks(album.id);
-        const uris = tracks.map((t) => t.uri);
-        return playlistService.createPlaylist(user!, { name: album.name }).then((response) => {
-          const playlist = response.data;
-          playlistService.addPlaylistItems(playlist.id, uris, playlist.snapshot_id!).then(() => {
-            dispatch(fetchMyPlaylists());
-            message.success(t('Added to playlist'));
-          });
-        });
+        dispatch(
+          createPlaylistModalActions.openCreatePlaylistModal({
+            initialName: album.name,
+          })
+        );
       },
     });
 
     return items;
-  }, [myPlaylists, t, handleUserValidation, album.id, album.name, user, dispatch]);
+  }, [myPlaylists, t, handleUserValidation, album.name, dispatch]);
 
   const items = useMemo(() => {
     const items: MenuProps['items'] = [];

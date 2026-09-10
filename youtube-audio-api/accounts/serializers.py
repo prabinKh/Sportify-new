@@ -23,7 +23,13 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_avatar_url(self, obj):
         if hasattr(obj, 'profile') and obj.profile.avatar_url:
-            return obj.profile.avatar_url
+            url = obj.profile.avatar_url
+            if url.startswith('/media/'):
+                request = self.context.get('request')
+                if request:
+                    return request.build_absolute_uri(url)
+                return f"http://127.0.0.1:8000{url}"
+            return url
         return 'https://cdn-icons-png.flaticon.com/512/1384/1384060.png'
 
     def get_images(self, obj):

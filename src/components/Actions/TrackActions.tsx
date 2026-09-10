@@ -41,6 +41,7 @@ import { albumActions } from '../../store/slices/album';
 import { artistActions } from '../../store/slices/artist';
 import { Artist } from '../../interfaces/artist';
 import { uiActions } from '../../store/slices/ui';
+import { createPlaylistModalActions } from '../../store/slices/createPlaylistModal';
 import { api } from '../../store/api';
 
 interface TrackActionsWrapperProps {
@@ -69,14 +70,14 @@ export const TrackActionsWrapper: FC<TrackActionsWrapperProps> = memo((props) =>
   );
 
   const handleUserValidation = useCallback(
-    (button?: boolean) => {
-      if (!userId) {
-        dispatch(button ? uiActions.openLoginButton() : uiActions.openLoginTooltip());
+    () => {
+      if (!userId || userId === 'guest') {
+        dispatch(uiActions.openLoginModal(track.album?.images?.[0]?.url || 'https://cdn-icons-png.flaticon.com/512/1384/1384060.png'));
         return false;
       }
       return true;
     },
-    [dispatch, userId]
+    [dispatch, userId, track]
   );
 
   const options = useMemo(() => {
@@ -112,17 +113,12 @@ export const TrackActionsWrapper: FC<TrackActionsWrapperProps> = memo((props) =>
             key: 'new',
             onClick: () => {
               if (!handleUserValidation()) return;
-              return playlistService
-                .createPlaylist(userId!, { name: track.name })
-                .then((response) => {
-                  const playlist = response.data;
-                  playlistService
-                    .addPlaylistItems(playlist.id, [track.uri], playlist.snapshot_id!)
-                    .then(() => {
-                      dispatch(fetchMyPlaylists());
-                      message.success(t('Added to playlist'));
-                    });
-                });
+              dispatch(
+                createPlaylistModalActions.openCreatePlaylistModal({
+                  initialName: track.name,
+                  initialTrackUri: track.uri,
+                })
+              );
             },
           },
           { type: 'divider' },

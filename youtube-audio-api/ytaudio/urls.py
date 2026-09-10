@@ -6,6 +6,8 @@ from django.conf.urls.static import static
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/accounts/', include('accounts.urls')),
+    path('api/rooms/', include('rooms.urls')),
+    path('api/social/', include('social.urls')),
     path('', include('downloader.urls')),  # Root routes go to the downloader app
 ]
 

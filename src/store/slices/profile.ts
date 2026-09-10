@@ -11,6 +11,7 @@ import type { Track, TrackWithSave } from '../../interfaces/track';
 import type { Artist } from '../../interfaces/artist';
 import type { Pagination } from '../../interfaces/api';
 import type { Playlist } from '../../interfaces/playlists';
+import { updateUserProfile } from './auth';
 
 const initialState: {
   user: User | null;
@@ -28,7 +29,7 @@ const initialState: {
 
 const fetchMyArtists = createAsyncThunk<Artist[], void>(
   'profile/fetchMyArtists',
-  async (_, api) => {
+  async (_, _api) => {
     const response = await userService.fetchFollowedArtists({ limit: 50 });
     return response.data.artists.items;
   }
@@ -36,7 +37,7 @@ const fetchMyArtists = createAsyncThunk<Artist[], void>(
 
 const fetchPlaylists = createAsyncThunk<Playlist[], string>(
   'profile/fetchMyPlaylists',
-  async (id, api) => {
+  async (id, _api) => {
     const response = await playlistService.getPlaylists(id, { limit: 50 });
     return response.data.items;
   }
@@ -44,7 +45,7 @@ const fetchPlaylists = createAsyncThunk<Playlist[], string>(
 
 const fetchMyTracks = createAsyncThunk<TrackWithSave[], void>(
   'profile/fetchMyTracks',
-  async (_, api) => {
+  async (_, _api) => {
     const response = await userService.fetchTopTracks({
       limit: 50,
       timeRange: 'short_term',
@@ -66,7 +67,7 @@ const fetchMyTracks = createAsyncThunk<TrackWithSave[], void>(
 
 const fetchCurrentUserData = createAsyncThunk<[Artist[], TrackWithSave[]], void>(
   'profile/fetchCurrentUserData',
-  async (_, api) => {
+  async (_, _api) => {
     const promises = [
       userService.fetchFollowedArtists({ limit: 10 }),
       userService.fetchTopTracks({
@@ -101,22 +102,32 @@ const fetchCurrentUserData = createAsyncThunk<[Artist[], TrackWithSave[]], void>
   }
 );
 
+const isSameUser = (u: any, id: string) => {
+  if (!u || !id) return false;
+  return (
+    String(u.id) === String(id) ||
+    u.username === id ||
+    id === 'me' ||
+    (u.id === 'guest' && (id === 'guest' || id === 'youtube_user'))
+  );
+};
+
 const fetchUser = createAsyncThunk<[User, Playlist[], boolean], string>(
   'profile/fetchUser',
   async (id, api) => {
     const { auth } = api.getState() as RootState;
-    const user = auth.user;
+    const authUser = auth.user;
 
-    if (user && user.id === id) {
+    const isCurrent = isSameUser(authUser, id);
+
+    if (isCurrent) {
       api.dispatch(fetchCurrentUserData());
     }
 
     const promises = [
-      // `/users/{id}` was removed Feb 2026. For the current user we already have the `/me`
-      // profile in auth; for other users it returns null and the page degrades gracefully.
-      user && user.id === id ? Promise.resolve({ data: user }) : userService.getUser(id),
+      isCurrent && authUser ? Promise.resolve({ data: authUser }) : userService.getUser(id),
       playlistService.getPlaylists(id, { limit: 10 }),
-      user && user.id === id
+      isCurrent
         ? userService.checkFollowingUsers([id]).catch(() => {
             return { data: [true] };
           })
@@ -137,6 +148,9 @@ const profileSlice = createSlice({
   name: 'profile',
   initialState,
   reducers: {
+    setProfileUser: (state, action) => {
+      state.user = action.payload;
+    },
     removeUser: (state) => {
       state.user = null;
       state.following = false;
@@ -174,6 +188,11 @@ const profileSlice = createSlice({
     });
     builder.addCase(fetchMyTracks.fulfilled, (state, action) => {
       state.songs = action.payload;
+    });
+    builder.addCase(updateUserProfile.fulfilled, (state, action) => {
+      if (action.payload.user) {
+        state.user = action.payload.user;
+      }
     });
   },
 });

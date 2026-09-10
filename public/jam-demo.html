@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>🎧 How Jam Rooms Work — ListenTogether Demo</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet" />
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:#0a0a0a;color:#fff;font-family:'Inter',sans-serif;min-height:100vh;overflow-x:hidden}
+    .hero{text-align:center;padding:60px 20px 40px;background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(16,185,129,.18) 0%,transparent 70%)}
+    .dot{width:8px;height:8px;border-radius:50%;background:#10b981;box-shadow:0 0 8px #10b981;animation:pulse 1.5s ease-in-out infinite;display:inline-block}
+    @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(1.3)}}
+    h1{font-size:clamp(28px,5vw,52px);font-weight:900;letter-spacing:-2px;margin-bottom:16px;background:linear-gradient(135deg,#fff 0%,#34d399 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .hero p{color:#a0a0a0;font-size:16px;max-width:600px;margin:0 auto 32px;line-height:1.6}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border-radius:9999px;border:none;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;text-decoration:none}
+    .btn-green{background:#10b981;color:#000}.btn-green:hover{background:#34d399;transform:scale(1.04)}
+    .btn-ghost{background:rgba(255,255,255,.08);color:#fff}.btn-ghost:hover{background:rgba(255,255,255,.16)}
+    .wrap{max-width:1200px;margin:0 auto;padding:0 20px 80px}
+    .sec{text-align:center;margin:48px 0 28px}
+    .sec h2{font-size:22px;font-weight:800;margin-bottom:6px}
+    .sec p{color:#6b7280;font-size:13px}
+    /* Steps */
+    .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-bottom:40px}
+    .step{background:#141414;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:20px;opacity:0;transform:translateY(18px);transition:all .4s}
+    .step.show{opacity:1;transform:translateY(0)}
+    .step-n{width:32px;height:32px;border-radius:50%;background:rgba(16,185,129,.15);color:#34d399;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;margin-bottom:12px;border:1px solid rgba(16,185,129,.3)}
+    .step h3{font-size:14px;font-weight:700;margin-bottom:6px}
+    .step p{font-size:12px;color:#9ca3af;line-height:1.6}
+    /* Demo stage */
+    .stage{background:#111;border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:28px;margin:24px 0}
+    .stage-title{display:flex;align-items:center;gap:8px;margin-bottom:20px;font-size:15px;font-weight:700}
+    .ctrls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px}
+    .ctrl{padding:9px 18px;border-radius:9999px;border:none;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:6px}
+    .ctrl-play{background:#10b981;color:#000}.ctrl-play:hover{background:#34d399}
+    .ctrl-reset{background:rgba(255,255,255,.1);color:#fff}.ctrl-reset:hover{background:rgba(255,255,255,.2)}
+    .ctrl-join{background:rgba(16,185,129,.15);color:#34d399;border:1px solid rgba(16,185,129,.3)}.ctrl-join:hover{background:rgba(16,185,129,.25)}
+    .ctrl-track{background:rgba(255,255,255,.06);color:#fff;border:1px solid rgba(255,255,255,.15)}.ctrl-track:hover{background:rgba(255,255,255,.14)}
+    /* Browser grid */
+    .browsers{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+    .browser{background:#1a1a1a;border-radius:10px;border:1px solid rgba(255,255,255,.1);overflow:hidden;transition:all .4s}
+    .browser.hi{border-color:#10b981;box-shadow:0 0 0 2px rgba(16,185,129,.25),0 12px 28px rgba(0,0,0,.5)}
+    .browser.dim{opacity:.4}
+    .bbar{background:#242424;padding:7px 10px;display:flex;align-items:center;gap:6px;border-bottom:1px solid rgba(255,255,255,.08)}
+    .bdots{display:flex;gap:4px}.bdots span{width:9px;height:9px;border-radius:50%}
+    .bdots span:nth-child(1){background:#ef4444}.bdots span:nth-child(2){background:#f59e0b}.bdots span:nth-child(3){background:#22c55e}
+    .burl{flex:1;background:#1a1a1a;border-radius:4px;padding:3px 8px;font-size:10px;color:#6b7280;font-family:'JetBrains Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .buser{font-size:10px;font-weight:700;color:#34d399;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.2);padding:2px 7px;border-radius:9999px}
+    .bcontent{padding:10px;min-height:220px}
+    /* Mini player */
+    .mp{background:linear-gradient(180deg,#1a2e1f 0%,#1a1a1a 100%);border-radius:8px;padding:10px}
+    .mpst{display:inline-flex;align-items:center;gap:5px;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.3);color:#34d399;padding:3px 9px;border-radius:9999px;font-size:10px;font-weight:700;margin-bottom:8px}
+    .mpst .sd{width:5px;height:5px;border-radius:50%;background:#10b981;box-shadow:0 0 5px #10b981}
+    .mpst.paused{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.1);color:#a0a0a0}
+    .mpst.paused .sd{background:#6b7280;box-shadow:none}
+    .mart{width:100%;aspect-ratio:1;border-radius:7px;background:linear-gradient(135deg,#1db954 0%,#064020 100%);margin-bottom:9px;display:flex;align-items:center;justify-content:center;font-size:24px;position:relative;overflow:hidden}
+    .mglow{position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,rgba(16,185,129,.3) 0%,transparent 70%);animation:glow 2s ease-in-out infinite alternate}
+    @keyframes glow{from{opacity:.4}to{opacity:1}}
+    .mtrack{font-size:11px;font-weight:700;color:#fff;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .martist{font-size:10px;color:#6b7280;margin-bottom:8px}
+    .mprog{height:3px;background:#333;border-radius:2px;margin-bottom:7px;overflow:hidden}
+    .mpbar{height:100%;background:#10b981;border-radius:2px;width:0%;transition:width .3s linear}
+    .mctrl{display:flex;align-items:center;justify-content:center}
+    .pbtn{width:32px;height:32px;border-radius:50%;border:none;background:#10b981;color:#000;display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;transition:transform .2s}
+    .pbtn:hover{transform:scale(1.1)}
+    .pbtn.lk{background:rgba(255,255,255,.08);color:#4b5563;cursor:not-allowed}
+    .lockbadge{font-size:10px;color:#6b7280;display:flex;align-items:center;gap:3px;margin-top:7px;justify-content:center}
+    /* Sync line */
+    .syncrow{display:flex;align-items:center;margin:14px 0}
+    .syncl{height:2px;flex:1;background:linear-gradient(90deg,rgba(16,185,129,0) 0%,#10b981 50%,rgba(16,185,129,0) 100%);animation:sf 1.5s linear infinite}
+    @keyframes sf{0%{background-position:100% 0}100%{background-position:-100% 0}}
+    .synclabel{background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);color:#34d399;padding:3px 12px;border-radius:9999px;font-size:11px;font-weight:700;white-space:nowrap}
+    /* Log */
+    .elog{background:#0d0d0d;border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:14px;margin-top:16px;font-family:'JetBrains Mono',monospace;font-size:11px;max-height:180px;overflow-y:auto}
+    .le{padding:3px 0;display:flex;gap:10px;animation:fi .3s ease}
+    @keyframes fi{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:translateX(0)}}
+    .lt{color:#4b5563}.lm{color:#d1d5db}.lm.ok{color:#34d399}.lm.inf{color:#60a5fa}.lm.wn{color:#fbbf24}
+    /* Rules */
+    .rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:20px}
+    .rc{background:#141414;border-radius:12px;padding:16px;border:1px solid rgba(255,255,255,.06)}
+    .rc .ri{font-size:22px;margin-bottom:8px}
+    .rc h4{font-size:13px;font-weight:700;margin-bottom:5px}
+    .rc p{font-size:11px;color:#6b7280;line-height:1.7}
+    .rc.hc{border-color:rgba(251,191,36,.3);background:rgba(251,191,36,.04)}
+    .rc.lc{border-color:rgba(96,165,250,.3);background:rgba(96,165,250,.04)}
+    .rc.sc{border-color:rgba(16,185,129,.3);background:rgba(16,185,129,.04)}
+    .rc.ic{border-color:rgba(167,139,250,.3);background:rgba(167,139,250,.04)}
+    /* Table */
+    table{width:100%;border-collapse:collapse;font-size:12px;min-width:550px}
+    th{text-align:left;padding:9px;font-weight:700;border-bottom:1px solid rgba(255,255,255,.1)}
+    td{padding:9px;border-bottom:1px solid rgba(255,255,255,.04)}
+    code{color:#34d399;font-family:'JetBrains Mono',monospace;font-size:11px}
+    .aos{opacity:0;transform:translateY(20px);transition:opacity .5s,transform .5s}
+    .aos.show{opacity:1;transform:translateY(0)}
+  </style>
+</head>
+<body>
+<div class="hero">
+  <p style="margin-bottom:12px"><span class="dot"></span> <span style="color:#34d399;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;vertical-align:middle">LIVE DEMO</span></p>
+  <h1>How Jam Rooms Work</h1>
+  <p>ListenTogether syncs the same song across all browsers in real time. Here's the full visual walkthrough.</p>
+  <a href="http://127.0.0.1:3000/rooms" class="btn btn-green" style="margin-right:10px">🎧 Open Live App</a>
+  <button class="btn btn-ghost" onclick="runDemo()">▶ Play Demo</button>
+</div>
+
+<div class="wrap">
+  <!-- STEPS -->
+  <div class="sec aos"><h2>Step-by-Step Flow</h2><p>What happens when users join a jam room</p></div>
+  <div class="steps">
+    <div class="step"><div class="step-n">1</div><h3>👑 Host Creates Room</h3><p>Any logged-in user creates a jam room. A unique <b>6-character code</b> is generated. Latest downloaded song auto-loads.</p></div>
+    <div class="step"><div class="step-n">2</div><h3>🔗 Share Invite</h3><p>Host clicks <b>"Invite Friends"</b> → copies room code or a direct link. Friends paste the link or enter the code.</p></div>
+    <div class="step"><div class="step-n">3</div><h3>🎯 Instant Sync on Join</h3><p>When listener's audio loads, app fetches <b>live server position</b> (pos + elapsed time) and seeks to exactly that point.</p></div>
+    <div class="step"><div class="step-n">4</div><h3>🔄 Continuous Sync</h3><p>Every <b>2 seconds</b>, listeners poll the server. If drift &gt; 2s, audio hard-seeks back. Play/pause is auto-enforced.</p></div>
+    <div class="step"><div class="step-n">5</div><h3>🔒 Host-Only Controls</h3><p>Only the host can play, pause, seek, or change tracks. Listeners are blocked at UI level AND via native audio event guards.</p></div>
+    <div class="step"><div class="step-n">6</div><h3>🚪 Leave → Full Access</h3><p>When a listener leaves the room, they return to the normal player with all controls restored immediately.</p></div>
+  </div>
+
+  <!-- DEMO STAGE -->
+  <div class="sec aos"><h2>🖥️ Live 3-Browser Simulation</h2><p>Press "Play Demo" to animate the full join + sync flow, or interact manually</p></div>
+  <div class="stage aos">
+    <div class="stage-title"><span class="dot"></span> 3-User Session — Room <span id="room-code" style="font-family:monospace;color:#34d399;margin-left:4px">68XDJ8</span></div>
+    <div class="ctrls">
+      <button class="ctrl ctrl-play" onclick="runDemo()">▶ Play Full Demo</button>
+      <button class="ctrl ctrl-reset" onclick="resetDemo()">↺ Reset</button>
+      <button class="ctrl ctrl-join" onclick="simulateUserJoin()">+ Add Listener</button>
+      <button class="ctrl ctrl-track" onclick="simulateTrackChange()">🎵 Change Track</button>
+    </div>
+    <div class="browsers">
+      <!-- HOST -->
+      <div class="browser dim" id="b-host">
+        <div class="bbar"><div class="bdots"><span></span><span></span><span></span></div><div class="burl">127.0.0.1:3000/room/68XDJ8</div><div class="buser">👑 admin (Host)</div></div>
+        <div class="bcontent"><div class="mp">
+          <div class="mpst paused" id="host-st"><div class="sd"></div><span>Paused</span></div>
+          <div class="mart" id="host-art">🎵<div class="mglow" style="display:none" id="host-glow"></div></div>
+          <div class="mtrack" id="host-track">Mine Again - Zach Bryan</div>
+          <div class="martist">Whiskey &amp; Wallows</div>
+          <div class="mprog"><div class="mpbar" id="host-bar"></div></div>
+          <div class="mctrl"><button class="pbtn" id="host-btn" onclick="togglePlay()">▶</button></div>
+          <div style="text-align:center;margin-top:6px;font-size:10px;color:#fbbf24;font-weight:700">👑 You are the Host</div>
+        </div></div>
+      </div>
+      <!-- LISTENER BOB -->
+      <div class="browser dim" id="b-bob">
+        <div class="bbar"><div class="bdots"><span></span><span></span><span></span></div><div class="burl">127.0.0.1:3000/room/68XDJ8</div><div class="buser">🎧 listener_bob</div></div>
+        <div class="bcontent">
+          <div id="bob-join" style="text-align:center;padding:40px 10px;color:#6b7280;font-size:12px"><div style="font-size:28px;margin-bottom:10px">👤</div><div>Not in room yet</div><button class="ctrl ctrl-join" onclick="joinBob()" style="margin-top:14px;font-size:11px;padding:7px 14px">Join Room</button></div>
+          <div class="mp" id="bob-player" style="display:none">
+            <div class="mpst paused" id="bob-st"><div class="sd"></div><span>Joining...</span></div>
+            <div class="mart" id="bob-art">🎵<div class="mglow" style="display:none" id="bob-glow"></div></div>
+            <div class="mtrack" id="bob-track">Mine Again - Zach Bryan</div>
+            <div class="martist">Whiskey &amp; Wallows</div>
+            <div class="mprog"><div class="mpbar" id="bob-bar"></div></div>
+            <div class="mctrl"><button class="pbtn lk" title="Locked">🔒</button></div>
+            <div class="lockbadge">🔒 Host controls playback</div>
+          </div>
+        </div>
+      </div>
+      <!-- LISTENER ALICE -->
+      <div class="browser dim" id="b-alice">
+        <div class="bbar"><div class="bdots"><span></span><span></span><span></span></div><div class="burl">127.0.0.1:3000/room/68XDJ8</div><div class="buser">🎧 alice_groove</div></div>
+        <div class="bcontent">
+          <div id="alice-join" style="text-align:center;padding:40px 10px;color:#6b7280;font-size:12px"><div style="font-size:28px;margin-bottom:10px">👤</div><div>Not in room yet</div><button class="ctrl ctrl-join" onclick="joinAlice()" style="margin-top:14px;font-size:11px;padding:7px 14px">Join Room</button></div>
+          <div class="mp" id="alice-player" style="display:none">
+            <div class="mpst paused" id="alice-st"><div class="sd"></div><span>Joining...</span></div>
+            <div class="mart" id="alice-art">🎵<div class="mglow" style="display:none" id="alice-glow"></div></div>
+            <div class="mtrack" id="alice-track">Mine Again - Zach Bryan</div>
+            <div class="martist">Whiskey &amp; Wallows</div>
+            <div class="mprog"><div class="mpbar" id="alice-bar"></div></div>
+            <div class="mctrl"><button class="pbtn lk" title="Locked">🔒</button></div>
+            <div class="lockbadge">🔒 Host controls playback</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="syncrow" id="sync-row" style="display:none"><div class="syncl"></div><div class="synclabel">⚡ Real-time Sync Every 2s</div><div class="syncl"></div></div>
+    <div class="elog" id="elog"><div class="le"><span class="lt">--:--:--</span><span class="lm">Ready — Press "Play Full Demo" or interact manually above.</span></div></div>
+  </div>
+
+  <!-- RULES -->
+  <div class="sec aos"><h2>Access Rules</h2><p>Who can do what inside a jam room</p></div>
+  <div class="rules aos">
+    <div class="rc hc"><div class="ri">👑</div><h4>Host Controls</h4><p>✅ Play / Pause<br>✅ Seek scrubber<br>✅ Change track<br>✅ End / Delete room<br>✅ Volume (local)<br>✅ Live chat</p></div>
+    <div class="rc lc"><div class="ri">🎧</div><h4>Listener View</h4><p>❌ Play / Pause (locked)<br>❌ Seek (disabled)<br>❌ Change track (hidden)<br>✅ Volume (local only)<br>✅ Live chat<br>✅ Leave anytime</p></div>
+    <div class="rc sc"><div class="ri">⚡</div><h4>Sync Mechanism</h4><p>🔄 Poll every 2 seconds<br>📍 livePos = pos + elapsed<br>🎯 Drift &gt; 2s → hard seek<br>🎵 Track change → hot-swap<br>🚪 Leave → full controls</p></div>
+    <div class="rc ic"><div class="ri">🔗</div><h4>Invite Flow</h4><p>1. Click "Invite Friends"<br>2. Copy code or link<br>3. Friend opens link<br>4. Enters code → joined<br>5. Auto-syncs 🎉</p></div>
+  </div>
+
+  <!-- TIMELINE TABLE -->
+  <div class="sec aos" style="margin-top:40px"><h2>📡 Sync Timeline</h2><p>What happens behind the scenes</p></div>
+  <div class="stage aos" style="padding:20px;overflow-x:auto">
+    <table>
+      <thead><tr><th style="color:#6b7280;width:130px">Time</th><th style="color:#fbbf24">👑 Host</th><th style="color:#93c5fd">🎧 Listener</th><th style="color:#34d399">🖥️ Server</th></tr></thead>
+      <tbody>
+        <tr><td style="color:#6b7280">T+0: Create</td><td>Creates room → code <code>68XDJ8</code></td><td style="color:#4b5563">—</td><td>Generates room, picks default track</td></tr>
+        <tr><td style="color:#6b7280">T+5: Play</td><td>Presses ▶ Play</td><td style="color:#4b5563">—</td><td>Saves <code>is_playing=true, pos=0, now</code></td></tr>
+        <tr><td style="color:#6b7280">T+12: Join</td><td style="color:#4b5563">Playing at 0:07</td><td>Opens link → audio loads</td><td>Returns <code>pos=0, updated_at=T+5</code></td></tr>
+        <tr><td style="color:#6b7280">T+12: Sync</td><td style="color:#4b5563">—</td><td style="color:#34d399">livePos = 0+(12-5) = <b>0:07</b><br>Seeks → plays at 0:07 ✅</td><td style="color:#4b5563">—</td></tr>
+        <tr><td style="color:#6b7280">Every 2s</td><td style="color:#4b5563">Plays normally</td><td>Polls server → corrects drift</td><td>Returns state + timestamp</td></tr>
+        <tr><td style="color:#6b7280">Host pauses</td><td>Presses ⏸</td><td style="color:#f87171">Within 2s: auto-paused ✅</td><td>Saves <code>is_playing=false</code></td></tr>
+        <tr><td style="color:#6b7280">Track change</td><td>Picks new song</td><td style="color:#34d399">src hot-swapped → 0:00 ✅</td><td>Updates <code>current_track, pos=0</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="text-align:center;margin-top:56px" class="aos">
+    <h2 style="font-size:26px;font-weight:900;margin-bottom:10px">Ready to try it live? 🎉</h2>
+    <p style="color:#6b7280;margin-bottom:20px">Create a room, share the code, and listen together in real time.</p>
+    <a href="http://127.0.0.1:3000/rooms" class="btn btn-green" style="text-decoration:none">🎧 Open Live Jam Rooms</a>
+  </div>
+</div>
+
+<script>
+const TRACKS=[{n:'Mine Again - Zach Bryan',a:'Whiskey & Wallows'},{n:'Hat on the Dash - Scoot Teasley',a:'Acoustic'},{n:'Better Year - Sam Barber',a:'Country'}];
+let playing=false,bobIn=false,aliceIn=false,prog=0,ticker=null,curTrack=0;
+
+function ts(){const n=new Date();return[n.getHours(),n.getMinutes(),n.getSeconds()].map(x=>String(x).padStart(2,'0')).join(':')}
+function log(m,t=''){const el=document.getElementById('elog');const d=document.createElement('div');d.className='le';d.innerHTML=`<span class="lt">${ts()}</span><span class="lm ${t}">${m}</span>`;el.appendChild(d);el.scrollTop=el.scrollHeight}
+function hi(id,ms=900){const el=document.getElementById(id);el.classList.add('hi');setTimeout(()=>el.classList.remove('hi'),ms)}
+function setPlayerState(uid,isPlay){
+  const st=document.getElementById(uid+'-st');const glow=document.getElementById(uid+'-glow');
+  if(isPlay){st.className='mpst';st.innerHTML='<div class="sd"></div><span>⚡ Synced with Host</span>';glow.style.display='block';}
+  else{st.className='mpst paused';st.innerHTML='<div class="sd"></div><span>⏸ Host Paused — Waiting…</span>';glow.style.display='none';}
+}
+function setPlaying(p){
+  playing=p;
+  const btn=document.getElementById('host-btn');
+  const hst=document.getElementById('host-st');const hgl=document.getElementById('host-glow');
+  btn.textContent=p?'⏸':'▶';
+  if(p){hst.className='mpst';hst.innerHTML='<div class="sd"></div><span>Broadcasting Live</span>';hgl.style.display='block';}
+  else{hst.className='mpst paused';hst.innerHTML='<div class="sd"></div><span>Paused</span>';hgl.style.display='none';}
+  if(bobIn)setPlayerState('bob',p);
+  if(aliceIn)setPlayerState('alice',p);
+  document.getElementById('sync-row').style.display=(p&&(bobIn||aliceIn))?'flex':'none';
+  clearInterval(ticker);
+  if(p){ticker=setInterval(()=>{prog=Math.min(prog+.25,100);['host','bob','alice'].forEach(u=>{const b=document.getElementById(u+'-bar');if(b)b.style.width=prog+'%'});if(prog>=100){clearInterval(ticker);setPlaying(false);log('Track ended — host broadcast pause','inf')}},100)}
+}
+function togglePlay(){
+  if(!playing){setPlaying(true);log('👑 Host pressed ▶ PLAY → broadcasting to listeners','ok');if(bobIn)log('  🎧 listener_bob: auto-playing at live position ✅','ok');if(aliceIn)log('  🎧 alice_groove: auto-playing at live position ✅','ok');}
+  else{setPlaying(false);log('👑 Host pressed ⏸ PAUSE → listeners pause within 2s','wn');}
+  hi('b-host');
+}
+function joinBob(){
+  if(bobIn)return;bobIn=true;
+  document.getElementById('bob-join').style.display='none';document.getElementById('bob-player').style.display='block';
+  document.getElementById('b-bob').classList.remove('dim');document.getElementById('b-host').classList.remove('dim');
+  log('🎧 listener_bob joined room 68XDJ8','inf');log('  → Fetching live server state…');
+  const lp=Math.round(prog*3/10)/10;
+  setTimeout(()=>{log(`  → livePos = server_pos + elapsed = ${lp}s`);document.getElementById('bob-st').innerHTML='<div class="sd"></div><span>Syncing…</span>';
+  setTimeout(()=>{document.getElementById('bob-bar').style.width=prog+'%';setPlayerState('bob',playing);log(playing?'  ✅ listener_bob: in sync — playing at same timestamp as host':'  ✅ listener_bob: joined paused — waiting for host',playing?'ok':'wn');if(playing&&bobIn&&aliceIn)document.getElementById('sync-row').style.display='flex'},700)},500);
+  hi('b-bob',1200);
+}
+function joinAlice(){
+  if(aliceIn)return;aliceIn=true;
+  document.getElementById('alice-join').style.display='none';document.getElementById('alice-player').style.display='block';
+  document.getElementById('b-alice').classList.remove('dim');document.getElementById('b-host').classList.remove('dim');
+  log('🎧 alice_groove joined room 68XDJ8','inf');log('  → Fetching live server state…');
+  const lp=Math.round(prog*3/10)/10;
+  setTimeout(()=>{log(`  → livePos = ${lp}s`);document.getElementById('alice-st').innerHTML='<div class="sd"></div><span>Syncing…</span>';
+  setTimeout(()=>{document.getElementById('alice-bar').style.width=prog+'%';setPlayerState('alice',playing);log(playing?'  ✅ alice_groove: in sync with host ✅':'  ✅ alice_groove: joined paused — waiting for host',playing?'ok':'wn');if(playing&&bobIn&&aliceIn)document.getElementById('sync-row').style.display='flex'},600)},400);
+  hi('b-alice',1200);
+}
+function simulateUserJoin(){if(!bobIn)joinBob();else if(!aliceIn)joinAlice();else log('All 3 users already in room','wn')}
+function simulateTrackChange(){
+  curTrack=(curTrack+1)%TRACKS.length;const t=TRACKS[curTrack];prog=0;
+  ['host','bob','alice'].forEach(u=>{const n=document.getElementById(u+'-track');if(n)n.textContent=t.n;const b=document.getElementById(u+'-bar');if(b)b.style.width='0%'});
+  log(`👑 Host changed track → "${t.n}"`, 'inf');
+  if(bobIn)log('  🎧 listener_bob: audio src hot-swapped → playing from 0:00 ✅','ok');
+  if(aliceIn)log('  🎧 alice_groove: audio src hot-swapped → playing from 0:00 ✅','ok');
+  if(playing){clearInterval(ticker);ticker=setInterval(()=>{prog=Math.min(prog+.25,100);['host','bob','alice'].forEach(u=>{const b=document.getElementById(u+'-bar');if(b)b.style.width=prog+'%'})},100)}
+}
+function resetDemo(){
+  playing=false;bobIn=false;aliceIn=false;prog=0;curTrack=0;clearInterval(ticker);
+  ['host','bob','alice'].forEach(u=>{const b=document.getElementById(u+'-bar');if(b)b.style.width='0%';const n=document.getElementById(u+'-track');if(n)n.textContent=TRACKS[0].n});
+  document.getElementById('host-btn').textContent='▶';
+  document.getElementById('host-st').className='mpst paused';document.getElementById('host-st').innerHTML='<div class="sd"></div><span>Paused</span>';
+  document.getElementById('host-glow').style.display='none';document.getElementById('sync-row').style.display='none';
+  document.getElementById('bob-join').style.display='block';document.getElementById('bob-player').style.display='none';
+  document.getElementById('alice-join').style.display='block';document.getElementById('alice-player').style.display='none';
+  ['b-host','b-bob','b-alice'].forEach(id=>{document.getElementById(id).classList.add('dim');document.getElementById(id).classList.remove('hi')});
+  document.getElementById('elog').innerHTML='<div class="le"><span class="lt">--:--:--</span><span class="lm">Demo reset. Press "Play Full Demo" to start again.</span></div>';
+}
+async function runDemo(){
+  resetDemo();await d(300);
+  log('🚀 Starting 3-user jam room demo…','inf');await d(500);
+  document.getElementById('b-host').classList.remove('dim');hi('b-host');
+  log('👑 admin (Host) enters room 68XDJ8','inf');await d(900);
+  log('👑 Host presses ▶ PLAY…');await d(500);
+  setPlaying(true);log('✅ Server: is_playing=true, position=0, updated_at=now','ok');hi('b-host');await d(1500);
+  log('─────────────────────────────');log('🔗 listener_bob opens invite link...','inf');await d(500);
+  joinBob();await d(1800);
+  log('─────────────────────────────');log('🔗 alice_groove enters room code 68XDJ8...','inf');await d(400);
+  joinAlice();await d(1800);
+  log('─────────────────────────────');log('🔄 [2s sync] All listeners polling server...','inf');await d(400);
+  log('  drift=0.08s → OK, no correction needed');await d(1800);
+  log('─────────────────────────────');log('👑 Host presses ⏸ PAUSE','wn');
+  setPlaying(false);log('✅ Server: is_playing=false saved','ok');await d(600);
+  log('  🎧 Both listeners: sync poll → audio.pause() ✅','ok');await d(1600);
+  log('─────────────────────────────');simulateTrackChange();await d(1600);
+  log('─────────────────────────────');log('👑 Host resumes ▶ on new track','inf');
+  setPlaying(true);log('  🎧 Listeners: new src loaded, seeks to 0:00, playing ✅','ok');await d(1800);
+  log('─────────────────────────────');log('🎉 Demo complete! All 3 browsers in perfect sync.','ok');
+}
+function d(ms){return new Promise(r=>setTimeout(r,ms))}
+
+// Scroll animations
+const obs=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('show');document.querySelectorAll('.step').forEach((s,i)=>setTimeout(()=>s.classList.add('show'),i*80))}}),{threshold:.1});
+document.querySelectorAll('.aos,.step').forEach(el=>obs.observe(el));
+</script>
+</body>
+</html>

@@ -36,6 +36,7 @@ import yourLibraryReducer from './slices/yourLibrary';
 import searchHistoryReducer from './slices/searchHistory';
 import artistDiscographyReducer from './slices/discography';
 import editPlaylistModalReducer from './slices/editPlaylistModal';
+import createPlaylistModalReducer from './slices/createPlaylistModal';
 import expireReducer from 'redux-persist-expire';
 
 const appReducer = combineReducers({
@@ -58,6 +59,7 @@ const appReducer = combineReducers({
   searchHistory: searchHistoryReducer,
   artistDiscography: artistDiscographyReducer,
   editPlaylistModal: editPlaylistModalReducer,
+  createPlaylistModal: createPlaylistModalReducer,
   [api.reducerPath]: api.reducer,
 });
 
