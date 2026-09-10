@@ -26,7 +26,7 @@ class UserSearchView(APIView):
 
         results = []
         for user in users:
-            data = UserSummarySerializer(user).data
+            data = UserSummarySerializer(user, context={'request': request}).data
             # Add friendship status
             fr = FriendRequest.objects.filter(
                 dm.Q(sender=request.user, receiver=user) |
@@ -61,7 +61,7 @@ class FriendListView(APIView):
         friends = []
         for fr in accepted:
             friend = fr.receiver if fr.sender == request.user else fr.sender
-            data = UserSummarySerializer(friend).data
+            data = UserSummarySerializer(friend, context={'request': request}).data
             # Unread DM count from this friend
             unread = DirectMessage.objects.filter(
                 sender=friend, receiver=request.user, read=False
@@ -84,7 +84,7 @@ class FriendRequestListCreateView(APIView):
         pending = FriendRequest.objects.filter(
             receiver=request.user, status='pending'
         ).select_related('sender', 'sender__profile')
-        return Response(FriendRequestSerializer(pending, many=True).data)
+        return Response(FriendRequestSerializer(pending, many=True, context={'request': request}).data)
 
     def post(self, request):
         to_id = request.data.get('to_user_id')
@@ -113,10 +113,10 @@ class FriendRequestListCreateView(APIView):
             existing.sender = request.user
             existing.receiver = receiver
             existing.save()
-            return Response(FriendRequestSerializer(existing).data, status=200)
+            return Response(FriendRequestSerializer(existing, context={'request': request}).data, status=200)
 
         fr = FriendRequest.objects.create(sender=request.user, receiver=receiver)
-        return Response(FriendRequestSerializer(fr).data, status=201)
+        return Response(FriendRequestSerializer(fr, context={'request': request}).data, status=201)
 
 
 class FriendRequestActionView(APIView):
@@ -133,11 +133,11 @@ class FriendRequestActionView(APIView):
         if action == 'accept':
             fr.status = 'accepted'
             fr.save()
-            return Response(FriendRequestSerializer(fr).data)
+            return Response(FriendRequestSerializer(fr, context={'request': request}).data)
         elif action == 'reject':
             fr.status = 'rejected'
             fr.save()
-            return Response(FriendRequestSerializer(fr).data)
+            return Response(FriendRequestSerializer(fr, context={'request': request}).data)
         return Response({'error': 'action must be accept or reject'}, status=400)
 
     def delete(self, request, pk):
@@ -190,7 +190,7 @@ class DirectMessageConversationView(APIView):
             sender=other, receiver=request.user, read=False
         ).update(read=True)
 
-        return Response(DirectMessageSerializer(messages, many=True).data)
+        return Response(DirectMessageSerializer(messages, many=True, context={'request': request}).data)
 
     def post(self, request, user_id):
         other, err = self._get_friend_or_403(request, user_id)
@@ -206,7 +206,7 @@ class DirectMessageConversationView(APIView):
             receiver=other,
             text=text
         )
-        return Response(DirectMessageSerializer(msg).data, status=201)
+        return Response(DirectMessageSerializer(msg, context={'request': request}).data, status=201)
 
 
 class ConversationListView(APIView):
@@ -234,8 +234,8 @@ class ConversationListView(APIView):
                 sender=friend, receiver=request.user, read=False
             ).count()
 
-            friend_data = UserSummarySerializer(friend).data
-            friend_data['last_message'] = DirectMessageSerializer(last_msg).data if last_msg else None
+            friend_data = UserSummarySerializer(friend, context={'request': request}).data
+            friend_data['last_message'] = DirectMessageSerializer(last_msg, context={'request': request}).data if last_msg else None
             friend_data['unread_count'] = unread
             results.append(friend_data)
 

@@ -20,7 +20,7 @@ export const LibraryLoginInfo = memo(() => {
   }, [dispatch]);
 
   const onConfirm = useCallback(() => {
-    return dispatch(loginToSpotify());
+    return dispatch(uiActions.openLoginModal('https://cdn-icons-png.flaticon.com/512/1384/1384060.png'));
   }, [dispatch]);
 
   useEffect(() => {
@@ -52,7 +52,7 @@ export const LibraryLoginInfo = memo(() => {
             <WhiteButton
               size='small'
               title={t('Log In')}
-              onClick={() => dispatch(loginToSpotify())}
+              onClick={() => dispatch(uiActions.openLoginModal('https://cdn-icons-png.flaticon.com/512/1384/1384060.png'))}
             />
           </div>
         </DetailsCard>

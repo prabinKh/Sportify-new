@@ -102,10 +102,18 @@ export const FriendsPage: FC = memo(() => {
     display: 'flex', alignItems: 'center', gap: '14px',
   } as React.CSSProperties;
 
+  const DEFAULT_AVATAR = 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png';
+  const getAvatarUrl = (url?: string) => {
+    if (!url) return DEFAULT_AVATAR;
+    if (url.startsWith('/media/')) return `http://127.0.0.1:8000${url}`;
+    return url;
+  };
+
   const renderUserCard = (u: UserSummary) => (
     <div key={u.id} style={card}>
       <img
-        src={u.avatar} alt={u.display_name}
+        src={getAvatarUrl(u.avatar)} alt={u.display_name}
+        onError={(e) => { e.currentTarget.src = DEFAULT_AVATAR; }}
         style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
       />
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -152,7 +160,11 @@ export const FriendsPage: FC = memo(() => {
   const renderFriendCard = (u: UserSummary) => (
     <div key={u.id} style={{ ...card, cursor: 'pointer' }} onClick={() => navigate(`/messages/${u.id}`)}>
       <div style={{ position: 'relative' }}>
-        <img src={u.avatar} alt={u.display_name} style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover' }} />
+        <img
+          src={getAvatarUrl(u.avatar)} alt={u.display_name}
+          onError={(e) => { e.currentTarget.src = DEFAULT_AVATAR; }}
+          style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover' }}
+        />
         {(u.unread_messages || 0) > 0 && (
           <div style={{ position: 'absolute', top: -4, right: -4, width: 18, height: 18, borderRadius: '50%', background: '#10b981', color: '#000', fontSize: '10px', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {u.unread_messages}
@@ -171,7 +183,11 @@ export const FriendsPage: FC = memo(() => {
 
   const renderRequestCard = (fr: FriendRequest) => (
     <div key={fr.id} style={card}>
-      <img src={fr.sender.avatar} alt={fr.sender.display_name} style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover' }} />
+      <img
+        src={getAvatarUrl(fr.sender.avatar)} alt={fr.sender.display_name}
+        onError={(e) => { e.currentTarget.src = DEFAULT_AVATAR; }}
+        style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover' }}
+      />
       <div style={{ flex: 1 }}>
         <div style={{ fontWeight: 700, fontSize: '14px', color: '#fff' }}>{fr.sender.display_name}</div>
         <div style={{ fontSize: '12px', color: '#6b7280' }}>@{fr.sender.username} wants to be your friend</div>
@@ -203,7 +219,7 @@ export const FriendsPage: FC = memo(() => {
   });
 
   return (
-    <div style={{ height: '100%', padding: '24px 32px 24px', color: '#fff', background: 'linear-gradient(180deg,#0d1f2d 0%,#121212 300px)', overflowY: 'auto', borderRadius: '8px' }}>
+    <div style={{ height: '100%', minHeight: '100%', flex: 1, padding: '24px 32px 24px', color: '#fff', background: 'linear-gradient(180deg,#0d1f2d 0%,#121212 300px)', overflowY: 'auto', borderRadius: '8px', boxSizing: 'border-box' }}>
       {/* Header */}
       <div style={{ marginBottom: '28px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>

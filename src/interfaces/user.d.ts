@@ -1,22 +1,18 @@
 export interface User {
+  id?: string;
+  username?: string;
   display_name?: string;
+  email?: string;
+  avatar_url?: string;
   external_urls?: {
     spotify: string;
   };
   href?: string;
-  id?: string;
-  images?: [
-    {
-      url: string;
-      height: number;
-      width: number;
-    },
-    {
-      url: string;
-      height: number;
-      width: number;
-    }
-  ];
+  images?: Array<{
+    url: string;
+    height?: number;
+    width?: number;
+  }>;
   type?: string;
   uri?: string;
   followers?: {
@@ -29,5 +25,4 @@ export interface User {
     filter_enabled: boolean;
     filter_locked: boolean;
   };
-  email?: string;
 }

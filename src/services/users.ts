@@ -1,25 +1,49 @@
 import axios from '../axios';
 import { formatLocalArtist, formatLocalTrack } from '../utils';
 
-const fetchTopTracks = async (_params: any = {}) => {
-  const res = await axios.get('/api/tracks/');
-  const items = (res.data || []).map(formatLocalTrack);
-  return { data: { items, total: items.length } };
+const fetchTopTracks = async (params: any = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.limit !== undefined) queryParams.append('limit', String(params.limit));
+  if (params.offset !== undefined) queryParams.append('offset', String(params.offset));
+  const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+
+  const res = await axios.get(`/api/tracks/${queryString}`);
+  const rawItems = Array.isArray(res.data) ? res.data : (res.data?.items || []);
+  const items = rawItems.map(formatLocalTrack);
+  const total = res.data?.total ?? items.length;
+  const hasMore = res.data?.has_more ?? false;
+  return { data: { items, total, has_more: hasMore } };
 };
 
-const fetchTopArtists = async (_params: any = {}) => {
-  const res = await axios.get('/api/artists/');
-  const items = (res.data || []).map(formatLocalArtist);
-  return { data: { items, total: items.length } };
+const fetchTopArtists = async (params: any = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.limit !== undefined) queryParams.append('limit', String(params.limit));
+  if (params.offset !== undefined) queryParams.append('offset', String(params.offset));
+  const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+
+  const res = await axios.get(`/api/artists/${queryString}`);
+  const rawItems = Array.isArray(res.data) ? res.data : (res.data?.items || []);
+  const items = rawItems.map(formatLocalArtist);
+  const total = res.data?.total ?? items.length;
+  const hasMore = res.data?.has_more ?? false;
+  return { data: { items, total, has_more: hasMore } };
 };
 
-const fetchFollowedArtists = async (_params: any = {}) => {
+const fetchFollowedArtists = async (params: any = {}) => {
   try {
-    const res = await axios.get('/api/following/artists/');
-    const items = (res.data || []).map((item: any) => formatLocalArtist(item.channel || item));
-    return { data: { artists: { items, total: items.length } } };
+    const queryParams = new URLSearchParams();
+    if (params.limit !== undefined) queryParams.append('limit', String(params.limit));
+    if (params.offset !== undefined) queryParams.append('offset', String(params.offset));
+    const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+
+    const res = await axios.get(`/api/following/artists/${queryString}`);
+    const rawItems = Array.isArray(res.data) ? res.data : (res.data?.items || []);
+    const items = rawItems.map((item: any) => formatLocalArtist(item.channel || item));
+    const total = res.data?.total ?? items.length;
+    const hasMore = res.data?.has_more ?? false;
+    return { data: { artists: { items, total, has_more: hasMore } } };
   } catch (e) {
-    return { data: { artists: { items: [], total: 0 } } };
+    return { data: { artists: { items: [], total: 0, has_more: false } } };
   }
 };
 

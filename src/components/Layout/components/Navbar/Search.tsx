@@ -63,7 +63,7 @@ export const Search = memo(() => {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      const isKeyK = event.key.toLowerCase() === 'k' || event.code === 'KeyK';
+      const isKeyK = event.key?.toLowerCase() === 'k' || event.code === 'KeyK';
       const withModifier = event.metaKey || event.ctrlKey;
 
       if (!isKeyK || !withModifier || event.altKey || event.shiftKey) return;

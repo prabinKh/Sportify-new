@@ -1,5 +1,5 @@
 import { Col } from 'antd';
-import { memo, type Dispatch, type SetStateAction } from 'react';
+import { memo, useEffect, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 
 import { PopularArtists } from '../../components/popularArtists';
 import { FavouriteArtists } from '../../components/favouriteArtists';
@@ -18,6 +18,32 @@ import { useAppSelector } from '../../../../store/store';
 interface HomeAllMusicSectionProps {
   setColor: Dispatch<SetStateAction<string>>;
 }
+
+const LazySection = memo(({ children }: { children: ReactNode }) => {
+  const [isVisible, setIsVisible] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isVisible) return;
+    const element = ref.current;
+    if (!element) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '300px 0px' }
+    );
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [isVisible]);
+
+  return <div ref={ref} style={{ minHeight: isVisible ? undefined : 40 }}>{isVisible ? children : null}</div>;
+});
 
 const MoreLikeArtistCol = memo(({ index }: { index: number }) => {
   const user = useAppSelector((state) => !!state.auth.user);
@@ -81,7 +107,9 @@ export const HomeAllMusicSection = memo(({ setColor }: HomeAllMusicSectionProps)
       <MoreLikeArtistCol index={1} />
 
       <Col span={24}>
-        <FeaturePlaylists />
+        <LazySection>
+          <FeaturePlaylists />
+        </LazySection>
       </Col>
 
       <MoreLikeArtistCol index={2} />
@@ -93,12 +121,16 @@ export const HomeAllMusicSection = memo(({ setColor }: HomeAllMusicSectionProps)
       ) : null}
 
       <Col span={24}>
-        <NewReleases />
+        <LazySection>
+          <NewReleases />
+        </LazySection>
       </Col>
 
       {!user || section === 'MUSIC' ? (
         <Col span={24}>
-          <Rankings />
+          <LazySection>
+            <Rankings />
+          </LazySection>
         </Col>
       ) : null}
 
@@ -106,13 +138,17 @@ export const HomeAllMusicSection = memo(({ setColor }: HomeAllMusicSectionProps)
 
       {!user || section === 'MUSIC' ? (
         <Col span={24}>
-          <Trending />
+          <LazySection>
+            <Trending />
+          </LazySection>
         </Col>
       ) : null}
 
       {user && section === 'ALL' ? (
         <Col span={24}>
-          <FavouriteArtists />
+          <LazySection>
+            <FavouriteArtists />
+          </LazySection>
         </Col>
       ) : null}
     </>

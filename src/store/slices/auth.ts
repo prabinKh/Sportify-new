@@ -4,6 +4,8 @@ import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 import axios from '../../axios';
 import login from '../../utils/spotify/login';
 
+import { uiActions } from './ui';
+
 // Services
 import { authService } from '../../services/auth';
 
@@ -40,7 +42,7 @@ export const loginToSpotify = createAsyncThunk<{ token?: string; loaded: boolean
     if (requestUser) thunkAPI.dispatch(fetchUser());
 
     if (!requestedToken) {
-      login.logInWithSpotify();
+      thunkAPI.dispatch(uiActions.openLoginModal('https://cdn-icons-png.flaticon.com/512/1384/1384060.png'));
     } else {
       axios.defaults.headers.common['Authorization'] = 'Bearer ' + requestedToken;
     }

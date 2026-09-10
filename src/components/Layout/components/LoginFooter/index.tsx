@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { WhiteButton } from '../../../Button';
 import { useTranslation } from 'react-i18next';
 import { useAppDispatch } from '../../../../store/store';
-import { loginToSpotify } from '../../../../store/slices/auth';
+import { uiActions } from '../../../../store/slices/ui';
 import useIsMobile from '../../../../utils/isMobile';
 
 export const LoginFooter = memo(() => {
@@ -20,7 +20,10 @@ export const LoginFooter = memo(() => {
           <p className='description'>{t('Log In to access all the features of the app')}.</p>
         </div>
 
-        <WhiteButton title={t('Log In')} onClick={() => dispatch(loginToSpotify())} />
+        <WhiteButton
+          title={t('Log In')}
+          onClick={() => dispatch(uiActions.openLoginModal('https://cdn-icons-png.flaticon.com/512/1384/1384060.png'))}
+        />
       </div>
     </div>
   );

@@ -30,8 +30,24 @@ const initialState: {
 const fetchMyArtists = createAsyncThunk<Artist[], void>(
   'profile/fetchMyArtists',
   async (_, _api) => {
-    const response = await userService.fetchFollowedArtists({ limit: 50 });
-    return response.data.artists.items;
+    try {
+      const followedRes = await userService.fetchFollowedArtists({ limit: 50 });
+      const followed = followedRes.data?.artists?.items || [];
+      const allRes = await userService.fetchTopArtists({ limit: 50 });
+      const all = allRes.data?.items || [];
+      const seen = new Set(followed.map((a: any) => String(a.id)));
+      const combined = [...followed];
+      for (const artist of all) {
+        if (!seen.has(String(artist.id))) {
+          seen.add(String(artist.id));
+          combined.push(artist);
+        }
+      }
+      return combined;
+    } catch {
+      const allRes = await userService.fetchTopArtists({ limit: 50 });
+      return allRes.data?.items || [];
+    }
   }
 );
 

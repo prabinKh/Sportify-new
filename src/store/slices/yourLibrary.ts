@@ -1,4 +1,5 @@
 import { createAsyncThunk, createSelector, createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { uniqBy } from 'lodash';
 
 // Services
 import { userService } from '../../services/users';
@@ -44,8 +45,26 @@ export const fetchMyAlbums = createAsyncThunk('yourLibrary/fetchTopTracks', asyn
 });
 
 export const fetchMyArtists = createAsyncThunk('yourLibrary/fetchMyArtists', async () => {
-  const response = await userService.fetchFollowedArtists({ limit: 50 });
-  return response.data.artists.items;
+  try {
+    const followedRes = await userService.fetchFollowedArtists({ limit: 50 });
+    const followed = followedRes.data?.artists?.items || [];
+
+    const allRes = await userService.fetchTopArtists({ limit: 50 });
+    const all = allRes.data?.items || [];
+
+    const seen = new Set(followed.map((a: any) => String(a.id)));
+    const combined = [...followed];
+    for (const artist of all) {
+      if (!seen.has(String(artist.id))) {
+        seen.add(String(artist.id));
+        combined.push(artist);
+      }
+    }
+    return combined;
+  } catch {
+    const allRes = await userService.fetchTopArtists({ limit: 50 });
+    return allRes.data?.items || [];
+  }
 });
 
 const yourLibrarySlice = createSlice({
@@ -115,7 +134,7 @@ export const getLibraryItems = createSelector(
       owner: user!,
     };
 
-    return [
+    const rawList = [
       myPlaylists.slice(0, 3),
       likedSongs,
       myAlbums.slice(0, 2),
@@ -148,6 +167,8 @@ export const getLibraryItems = createSelector(
       .filter((r) => r)
       .flat()
       .filter(matchesSearch);
+
+    return uniqBy(rawList, (item) => `${item.type || 'item'}-${item.id}`);
   }
 );
 

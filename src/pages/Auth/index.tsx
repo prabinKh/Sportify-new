@@ -2,7 +2,7 @@ import { FC, memo, useState, useEffect, FormEvent } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { message } from 'antd';
 import {
-  FaSpotify,
+  FaHeadphones,
   FaUser,
   FaLock,
   FaEnvelope,
@@ -211,7 +211,7 @@ const AuthPage: FC<AuthPageProps> = memo(({ defaultMode }) => {
           <div>
             <div className='auth-brand-header'>
               <div className='brand-logo-icon'>
-                <FaSpotify />
+                <img src='/logo.png' alt='Sportify Logo' style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
               </div>
               <div className='brand-text'>
                 <h1>Sportify</h1>
@@ -397,11 +397,11 @@ const AuthPage: FC<AuthPageProps> = memo(({ defaultMode }) => {
               <div className='auth-social-actions'>
                 <button
                   type='button'
-                  className='social-btn spotify-oauth-btn'
-                  onClick={() => dispatch(loginToSpotify())}
+                  className='social-btn'
+                  onClick={() => handleTabChange('register')}
                 >
-                  <FaSpotify style={{ fontSize: 18 }} />
-                  <span>Connect Spotify Web</span>
+                  <FaUserPlus style={{ fontSize: 18, color: '#1db954' }} />
+                  <span>Create New Account</span>
                 </button>
 
                 <button

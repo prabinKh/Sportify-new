@@ -19,6 +19,7 @@ import {
   FaUserPlus,
   FaQrcode,
   FaDoorOpen,
+  FaRotateRight,
 } from 'react-icons/fa6';
 
 // Redux & Services
@@ -232,19 +233,61 @@ export const RoomView: FC = memo(() => {
     }
   };
 
-  // Periodic State Sync & Drift Correction (Every 2 seconds for tight sync)
+  // Autoplay Protection State
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
+  const autoplayBlockedRef = useRef(false);
+
+  const attemptPlayListener = useCallback((audio: HTMLAudioElement, targetPos: number) => {
+    if (autoplayBlockedRef.current) return;
+    audio.currentTime = targetPos;
+    audio.play().then(() => {
+      autoplayBlockedRef.current = false;
+      setAutoplayBlocked(false);
+    }).catch((err: any) => {
+      if (err.name === 'NotAllowedError' || err.name === 'NotSupportedError') {
+        autoplayBlockedRef.current = true;
+        setAutoplayBlocked(true);
+      }
+    });
+  }, []);
+
+  // Host Heartbeat: Periodically send host's true currentTime to backend so listeners stay in tight sync
+  useEffect(() => {
+    if (!code) return;
+    const heartbeatInterval = setInterval(() => {
+      if (isHostRef.current && roomRef.current?.is_playing && audioRef.current && !audioRef.current.paused) {
+        roomService.syncPlayback(code, {
+          action: 'heartbeat',
+          position_seconds: audioRef.current.currentTime,
+        }).catch(() => {});
+      }
+    }, 3500);
+    return () => clearInterval(heartbeatInterval);
+  }, [code]);
+
+  // Pre-load available tracks for auto-advance queue ordering
+  useEffect(() => {
+    axios.get('/api/tracks/').then((res) => {
+      const tracks = (res.data || []).map(formatLocalTrack).filter(Boolean);
+      setAvailableTracks(tracks);
+    }).catch(() => {});
+  }, []);
+
+  // Periodic State Sync & Tight Drift Correction (Polls every 800ms)
   useEffect(() => {
     if (!code || isSeeking) return;
 
     const syncInterval = setInterval(async () => {
       try {
+        const pingStart = performance.now();
         const state = await roomService.getRoomState(code);
+        const rttSec = (performance.now() - pingStart) / 1000 / 2; // latency estimate
 
         // Detect track change by comparing audio_file URL
         const newTrackUrl = state.current_track?.audio_file || state.current_track?.media_url || null;
 
-        // Compute live position NOW (accounts for time elapsed since server response)
-        const livePos = calcLivePosition(state);
+        // Compute live position NOW (accounts for time elapsed since server response + latency)
+        const livePos = calcLivePosition(state) + (state.is_playing ? rttSec : 0);
 
         setRoom((prev) => {
           if (!prev) return null;
@@ -260,49 +303,135 @@ export const RoomView: FC = memo(() => {
           };
         });
 
-        // LISTENERS ONLY: apply play/pause/seek sync
+        // LISTENERS ONLY: apply play/pause/seek/speed sync
         // Hosts manage their own audio directly
         if (!isHostRef.current && audioRef.current) {
           const audio = audioRef.current;
-
-          // ── BLOCK any listener from playing on their own ──
-          // Enforce: if host is NOT playing, listener audio must be paused
-          // If host IS playing, listener audio must be playing
 
           // 1) Track changed → hot-swap source
           if (newTrackUrl && loadedTrackUrlRef.current !== newTrackUrl) {
             loadedTrackUrlRef.current = newTrackUrl;
             audio.src = newTrackUrl;
             audio.load();
-            // onLoadedMetadata will handle seeking + play/pause
+            autoplayBlockedRef.current = false;
+            setAutoplayBlocked(false);
             return;
           }
 
-          // 2) Drift correction (only if playing, to avoid noisy seeks while paused)
+          // 2) High-precision drift correction
           if (state.is_playing) {
-            const drift = Math.abs(audio.currentTime - livePos);
-            if (drift > 2.0) {
-              // Large drift: hard seek
+            const diff = livePos - audio.currentTime; // Positive: listener behind; Negative: listener ahead
+            const absDrift = Math.abs(diff);
+
+            if (absDrift > 0.4 && !autoplayBlockedRef.current) {
+              // Large drift (>400ms): hard seek to live position
               audio.currentTime = livePos;
+              audio.playbackRate = 1.0;
+            } else if (absDrift > 0.04 && !audio.paused) {
+              // Small drift (40ms - 400ms): dynamically adjust playback rate to seamlessly catch up/slow down
+              if (diff > 0) {
+                // Listener is behind host -> speed up slightly (e.g. 1.03x to 1.05x)
+                audio.playbackRate = Math.min(1.06, 1.0 + diff * 0.15);
+              } else {
+                // Listener is ahead of host -> slow down slightly (e.g. 0.95x to 0.97x)
+                audio.playbackRate = Math.max(0.94, 1.0 + diff * 0.15);
+              }
+            } else {
+              // In tight sync (<40ms drift): normal speed
+              audio.playbackRate = 1.0;
             }
+          } else {
+            audio.playbackRate = 1.0;
           }
 
-          // 3) Play/pause enforcement
+          // 3) Play/pause enforcement (guarded against autoplay frame loops)
           if (state.is_playing && audio.paused) {
-            audio.currentTime = livePos; // always re-anchor on resume
-            audio.play().catch(() => {});
+            attemptPlayListener(audio, livePos);
           } else if (!state.is_playing && !audio.paused) {
             audio.pause();
             audio.currentTime = state.position_seconds; // anchor at exact pause point
+            audio.playbackRate = 1.0;
           }
         }
       } catch (err) {
         console.warn('Sync poll error:', err);
       }
-    }, 2000);
+    }, 800);
 
     return () => clearInterval(syncInterval);
+  }, [code, isSeeking, attemptPlayListener]);
+
+  // Real-time timestamp ticker for listeners and joiners (updates UI every 250ms)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (isSeeking) return;
+      if (audioRef.current && !audioRef.current.paused && audioRef.current.currentTime > 0) {
+        setCurrentTime(audioRef.current.currentTime);
+        if (audioRef.current.duration && !isNaN(audioRef.current.duration)) {
+          setDuration(audioRef.current.duration);
+        }
+      } else if (roomRef.current) {
+        const livePos = calcLivePosition(roomRef.current);
+        setCurrentTime(livePos);
+      }
+    }, 250);
+    return () => clearInterval(timer);
+  }, [isSeeking]);
+
+  // Automatic 10-second Timestamp Auto-Adjuster for all connected users
+  useEffect(() => {
+    if (!code || isSeeking) return;
+
+    const tenSecCheckInterval = setInterval(async () => {
+      if (!isHostRef.current && audioRef.current && roomRef.current) {
+        try {
+          const freshState = await roomService.getRoomState(code);
+          const livePos = calcLivePosition(freshState);
+          const audio = audioRef.current;
+          const drift = Math.abs(livePos - audio.currentTime);
+
+          if (freshState.is_playing) {
+            // Auto-adjust timestamp if drift is > 0.5s or if audio is paused while room is playing
+            if (drift > 0.5 || audio.paused) {
+              audio.currentTime = livePos;
+              audio.play().catch(() => {});
+            }
+          } else if (!freshState.is_playing && !audio.paused) {
+            audio.pause();
+            audio.currentTime = freshState.position_seconds;
+          }
+        } catch (err) {
+          console.warn('10-sec timestamp check error:', err);
+        }
+      }
+    }, 10000);
+
+    return () => clearInterval(tenSecCheckInterval);
   }, [code, isSeeking]);
+
+  // Manual Sync & Refresh Audio Button Handler
+  const handleSyncAudio = async () => {
+    if (!code) return;
+    try {
+      const freshState = await roomService.getRoomState(code);
+      const livePos = calcLivePosition(freshState);
+
+      if (audioRef.current) {
+        audioRef.current.currentTime = livePos;
+        if (freshState.is_playing) {
+          autoplayBlockedRef.current = false;
+          setAutoplayBlocked(false);
+          await audioRef.current.play().catch(() => {});
+        } else {
+          audioRef.current.pause();
+        }
+      }
+      setCurrentTime(livePos);
+      message.success('Audio synced to exact live position! 🎧');
+    } catch {
+      message.error('Failed to sync audio.');
+    }
+  };
 
   // ── Hard-block listener audio control via native events ──
   // Prevents keyboard space-bar, browser mini-player, or any other mechanism
@@ -545,12 +674,16 @@ export const RoomView: FC = memo(() => {
   return (
     <div
       style={{
-        height: 'calc(100vh - 110px)',
+        height: '100%',
+        minHeight: '100%',
+        flex: 1,
         display: 'flex',
         flexDirection: 'column',
         background: 'linear-gradient(180deg, #0d281a 0%, #121212 280px)',
         color: '#ffffff',
         overflow: 'hidden',
+        borderRadius: '8px',
+        boxSizing: 'border-box',
       }}
     >
       {/* Hidden Audio Element for playback */}
@@ -568,36 +701,48 @@ export const RoomView: FC = memo(() => {
             audio.volume = volume;
 
             // ─── Fetch FRESH state from server at the moment audio is ready ───
-            // This prevents joiners from starting at a stale position that was
-            // calculated when loadRoom() ran (could be seconds ago).
             try {
               const freshState = await roomService.getRoomState(code!);
               const livePos = calcLivePosition(freshState);
 
-              audio.currentTime = livePos;
-
               if (freshState.is_playing) {
-                // Everyone hears music immediately if host is playing
-                audio.play().catch(() => {});
+                if (isHostRef.current) {
+                  audio.currentTime = livePos;
+                  audio.play().catch(() => {});
+                } else {
+                  attemptPlayListener(audio, livePos);
+                }
               } else {
-                // Host is paused — stay paused at exact pause point
                 audio.pause();
                 audio.currentTime = freshState.position_seconds;
               }
             } catch {
-              // Fallback: use cached room state
               const cachedRoom = roomRef.current;
               if (cachedRoom) {
-                audio.currentTime = calcLivePosition(cachedRoom);
+                const livePos = calcLivePosition(cachedRoom);
                 if (cachedRoom.is_playing) {
-                  audio.play().catch(() => {});
+                  if (isHostRef.current) {
+                    audio.currentTime = livePos;
+                    audio.play().catch(() => {});
+                  } else {
+                    attemptPlayListener(audio, livePos);
+                  }
                 }
               }
             }
           }}
           onEnded={() => {
-            // When a track ends, only the host signals pause to the room
+            // When a track ends, only the host advances or pauses for the room
             if (isHostRef.current && roomRef.current) {
+              if (availableTracks.length > 0 && currentTrack) {
+                const idx = availableTracks.findIndex((t) => t.id === currentTrack.id);
+                const nextIdx = idx >= 0 ? (idx + 1) % availableTracks.length : 0;
+                const nextTrack = availableTracks[nextIdx];
+                if (nextTrack) {
+                  handleSelectTrack(nextTrack);
+                  return;
+                }
+              }
               roomService.syncPlayback(roomRef.current.code, {
                 action: 'pause',
                 position_seconds: 0,
@@ -726,6 +871,30 @@ export const RoomView: FC = memo(() => {
               <span>End Room</span>
             </button>
           )}
+
+          <button
+            onClick={handleSyncAudio}
+            title='Sync audio with live host timestamp'
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 16px',
+              borderRadius: '9999px',
+              border: '1px solid rgba(16, 185, 129, 0.4)',
+              background: 'rgba(16, 185, 129, 0.15)',
+              color: '#34d399',
+              fontSize: '12px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(16, 185, 129, 0.25)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(16, 185, 129, 0.15)'; }}
+          >
+            <FaRotateRight size={12} />
+            <span>Sync Audio</span>
+          </button>
 
           <button
             onClick={handleLeaveRoom}
@@ -881,32 +1050,44 @@ export const RoomView: FC = memo(() => {
           </div>
 
           {/* Scrubber Progress Bar */}
-          <div style={{ width: '100%', maxWidth: '500px', marginBottom: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{ fontSize: '12px', color: '#a0a0a0', width: '38px', textAlign: 'right' }}>
-                {formatTime(isSeeking ? seekValue : currentTime)}
-              </span>
-              <input
-                type='range'
-                min={0}
-                max={duration || 100}
-                step={0.5}
-                disabled={!isHost}
-                value={isSeeking ? seekValue : currentTime}
-                onChange={handleSeekChange}
-                onMouseUp={handleSeekCommit}
-                onTouchEnd={handleSeekCommit}
-                style={{
-                  flex: 1,
-                  accentColor: '#10b981',
-                  cursor: isHost ? 'pointer' : 'default',
-                }}
-              />
-              <span style={{ fontSize: '12px', color: '#a0a0a0', width: '38px' }}>
-                {formatTime(duration)}
-              </span>
-            </div>
-          </div>
+          {(() => {
+            const displayDuration =
+              duration > 0
+                ? duration
+                : (track?.duration_seconds || (track?.duration_ms ? track.duration_ms / 1000 : 0));
+            const displayCurrentTime = isSeeking
+              ? seekValue
+              : (currentTime > 0 ? currentTime : (room ? calcLivePosition(room) : 0));
+
+            return (
+              <div style={{ width: '100%', maxWidth: '500px', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ fontSize: '12px', color: '#a0a0a0', width: '38px', textAlign: 'right' }}>
+                    {formatTime(displayCurrentTime)}
+                  </span>
+                  <input
+                    type='range'
+                    min={0}
+                    max={displayDuration || 100}
+                    step={0.5}
+                    disabled={!isHost}
+                    value={Math.min(displayCurrentTime, displayDuration || 100)}
+                    onChange={handleSeekChange}
+                    onMouseUp={handleSeekCommit}
+                    onTouchEnd={handleSeekCommit}
+                    style={{
+                      flex: 1,
+                      accentColor: '#10b981',
+                      cursor: isHost ? 'pointer' : 'default',
+                    }}
+                  />
+                  <span style={{ fontSize: '12px', color: '#a0a0a0', width: '38px' }}>
+                    {formatTime(displayDuration)}
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Controls Bar */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
@@ -1014,6 +1195,31 @@ export const RoomView: FC = memo(() => {
                     </>
                   )}
                 </div>
+
+                <button
+                  onClick={handleSyncAudio}
+                  title='Click to re-sync audio with host if any error'
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '10px 18px',
+                    borderRadius: '9999px',
+                    border: '1px solid rgba(16, 185, 129, 0.4)',
+                    background: 'rgba(16, 185, 129, 0.15)',
+                    color: '#34d399',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(16, 185, 129, 0.25)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(16, 185, 129, 0.15)'; }}
+                >
+                  <FaRotateRight size={13} />
+                  <span>Sync Audio</span>
+                </button>
+
                 <span style={{ fontSize: '11px', color: '#6b7280' }}>
                   🔒 Host controls playback
                 </span>

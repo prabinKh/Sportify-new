@@ -82,23 +82,28 @@ export const AppLayout: FC<{ children: ReactElement }> = memo((props) => {
       {/* Main Component */}
       <div className='main-container'>
         <Row
-          wrap
+          wrap={false}
           justify='end'
-          gutter={[8, 8]}
+          gutter={[0, 8]}
           style={{
             overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
             height: `calc(100vh - ${
               activeOnOtherDevice ? '141' : !user && isMobile ? '0' : '120'
             }px)`,
           }}
         >
-          <Col span={24}>
+          <Col span={24} style={{ flex: '0 0 auto' }}>
             <Navbar />
           </Col>
 
           <Col
             span={24}
             style={{
+              flex: '1 1 0%',
+              height: 'calc(100% - 56px)',
+              overflow: 'hidden',
               maxHeight: activeOnOtherDevice ? `calc(100vh - 185px)` : undefined,
             }}
           >

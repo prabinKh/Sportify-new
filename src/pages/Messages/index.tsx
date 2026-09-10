@@ -57,40 +57,62 @@ export const MessagesPage: FC = memo(() => {
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
 
-  // Open conversation from URL param
+  // Open conversation from URL param (guarded to prevent infinite re-render loop)
   useEffect(() => {
     if (userId && conversations.length > 0) {
-      const found = conversations.find((c) => String(c.id) === userId);
-      if (found) openConversation(found);
+      const targetId = parseInt(userId, 10);
+      if (!isNaN(targetId) && activeConvo?.id !== targetId) {
+        const found = conversations.find((c) => c.id === targetId);
+        if (found) {
+          setActiveConvo(found);
+          socialService.getMessages(found.id).then((msgs) => {
+            setMessages(msgs);
+            setConversations((prev) =>
+              prev.map((c) => (c.id === found.id ? { ...c, unread_count: 0 } : c))
+            );
+          }).catch(() => {});
+        }
+      }
     }
-  }, [userId, conversations]);
+  }, [userId, conversations, activeConvo?.id]);
 
   const openConversation = useCallback(async (friend: UserSummary) => {
+    if (activeConvo?.id === friend.id) return;
     setActiveConvo(friend);
     navigate(`/messages/${friend.id}`, { replace: true });
     try {
       const msgs = await socialService.getMessages(friend.id);
       setMessages(msgs);
-      // mark read
-      setConversations((prev) => prev.map((c) => c.id === friend.id ? { ...c, unread_count: 0 } : c));
+      setConversations((prev) =>
+        prev.map((c) => (c.id === friend.id ? { ...c, unread_count: 0 } : c))
+      );
     } catch {}
-  }, [navigate]);
+  }, [activeConvo?.id, navigate]);
 
-  // Poll for new messages every 3 seconds when chat is open
+  // Poll for new messages every 3 seconds when chat is open (only update state if messages actually change)
   useEffect(() => {
     if (!activeConvo) return;
     const interval = setInterval(async () => {
       try {
         const msgs = await socialService.getMessages(activeConvo.id);
-        setMessages(msgs);
+        setMessages((prev) => {
+          if (prev.length === msgs.length && prev.map(m => m.id).join() === msgs.map(m => m.id).join()) {
+            return prev; // No change -> preserve reference to avoid unnecessary re-renders
+          }
+          return msgs;
+        });
       } catch {}
     }, 3000);
     return () => clearInterval(interval);
-  }, [activeConvo]);
+  }, [activeConvo?.id]);
 
+  const prevMsgCountRef = useRef(0);
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (messages.length > prevMsgCountRef.current) {
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+    prevMsgCountRef.current = messages.length;
+  }, [messages.length]);
 
   const sendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -112,6 +134,13 @@ export const MessagesPage: FC = memo(() => {
     return acc;
   }, {} as Record<string, DirectMessage[]>);
 
+  const DEFAULT_AVATAR = 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png';
+  const getAvatarUrl = (url?: string) => {
+    if (!url) return DEFAULT_AVATAR;
+    if (url.startsWith('/media/')) return `http://127.0.0.1:8000${url}`;
+    return url;
+  };
+
   const sidebarStyle: React.CSSProperties = {
     width: 280, flexShrink: 0, borderRight: '1px solid rgba(255,255,255,.08)',
     display: 'flex', flexDirection: 'column', background: '#111',
@@ -121,7 +150,7 @@ export const MessagesPage: FC = memo(() => {
   };
 
   return (
-    <div style={{ height: '100%', display: 'flex', color: '#fff', background: '#0f0f0f', overflow: 'hidden', borderRadius: '8px' }}>
+    <div style={{ height: '100%', minHeight: '100%', flex: 1, display: 'flex', color: '#fff', background: '#0f0f0f', overflow: 'hidden', borderRadius: '8px', boxSizing: 'border-box' }}>
 
       {/* Left sidebar — conversation list */}
       <div style={sidebarStyle}>
@@ -165,7 +194,11 @@ export const MessagesPage: FC = memo(() => {
                   }}
                 >
                   <div style={{ position: 'relative', flexShrink: 0 }}>
-                    <img src={convo.avatar} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
+                    <img
+                      src={getAvatarUrl(convo.avatar)} alt=""
+                      onError={(e) => { e.currentTarget.src = DEFAULT_AVATAR; }}
+                      style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }}
+                    />
                     {(convo.unread_count || 0) > 0 && (
                       <div style={{ position: 'absolute', top: -2, right: -2, width: 16, height: 16, borderRadius: '50%', background: '#10b981', color: '#000', fontSize: '9px', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         {convo.unread_count}
@@ -202,7 +235,11 @@ export const MessagesPage: FC = memo(() => {
               <button onClick={() => { setActiveConvo(null); navigate('/messages'); }} style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: 4 }}>
                 <FaArrowLeft />
               </button>
-              <img src={activeConvo.avatar} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
+              <img
+                src={getAvatarUrl(activeConvo.avatar)} alt=""
+                onError={(e) => { e.currentTarget.src = DEFAULT_AVATAR; }}
+                style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }}
+              />
               <div>
                 <div style={{ fontWeight: 700, fontSize: '14px' }}>{activeConvo.display_name}</div>
                 <div style={{ fontSize: '11px', color: '#10b981' }}>🔒 Friends only chat</div>
@@ -253,7 +290,11 @@ export const MessagesPage: FC = memo(() => {
                     return (
                       <div key={msg.id} style={{ display: 'flex', justifyContent: isMine ? 'flex-end' : 'flex-start', marginBottom: '6px' }}>
                         {!isMine && (
-                          <img src={msg.sender.avatar} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', marginRight: '8px', flexShrink: 0, alignSelf: 'flex-end' }} />
+                          <img
+                            src={getAvatarUrl(msg.sender.avatar)} alt=""
+                            onError={(e) => { e.currentTarget.src = DEFAULT_AVATAR; }}
+                            style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', marginRight: '8px', flexShrink: 0, alignSelf: 'flex-end' }}
+                          />
                         )}
                         <div
                           style={{

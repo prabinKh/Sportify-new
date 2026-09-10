@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import Chip from '../../../Chip';
 import { Dropdown, Flex, Space } from 'antd';
@@ -119,12 +120,18 @@ export const SearchArea = () => {
 
 const TypeSelector = memo(() => {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const [t] = useTranslation('navbar');
   const filter = useAppSelector((state) => state.yourLibrary.filter);
   const hasAlbums = useAppSelector((state) => state.yourLibrary.myAlbums.length > 0);
 
-  const onClick = (filter: YourLibraryState['filter']) => {
-    dispatch(yourLibraryActions.setFilter({ filter }));
+  const onClick = (filterType: YourLibraryState['filter']) => {
+    dispatch(yourLibraryActions.setFilter({ filter: filterType }));
+    if (filterType === 'ARTISTS') {
+      navigate('/artists');
+    } else if (filterType === 'PLAYLISTS') {
+      navigate('/playlist');
+    }
   };
 
   const items = useMemo(() => {

@@ -1,7 +1,8 @@
 import { FC, memo, useCallback, useEffect, useState } from 'react';
 import { Modal, message } from 'antd';
 import {
-  FaSpotify,
+  FaHeadphones,
+  FaMusic,
   FaUser,
   FaLock,
   FaEnvelope,
@@ -260,7 +261,7 @@ export const LoginModal: FC = memo(() => {
                 fontWeight: 600,
               }}
             >
-              <FaSpotify style={{ color: '#1db954' }} />
+              <img src='/logo.png' alt='Sportify' style={{ width: 18, height: 18, objectFit: 'contain' }} />
               <span>Sportify</span>
             </div>
           </div>
@@ -367,15 +368,15 @@ export const LoginModal: FC = memo(() => {
               <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
                 <button
                   type='button'
-                  className='social-btn spotify-oauth-btn'
+                  className='social-btn'
                   style={{ flex: 1, height: 36, fontSize: '0.8rem' }}
                   onClick={() => {
-                    dispatch(loginToSpotify());
                     onClose();
+                    navigate('/signup');
                   }}
                 >
-                  <FaSpotify />
-                  <span>Spotify Auth</span>
+                  <FaUserPlus style={{ color: '#1db954' }} />
+                  <span>Create Account</span>
                 </button>
                 <button
                   type='button'

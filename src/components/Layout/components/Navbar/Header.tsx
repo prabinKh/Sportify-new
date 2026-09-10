@@ -11,7 +11,7 @@ import {
   FaHeart,
   FaMicrophone,
   FaListUl,
-  FaSpotify,
+  FaHeadphones,
   FaWindowRestore,
   FaRadio,
   FaUsers,
@@ -169,10 +169,10 @@ const Header = ({ opacity }: { opacity: number; title?: string }) => {
       },
       { type: 'divider' },
       {
-        key: 'spotify-oauth',
-        icon: <FaSpotify style={{ fontSize: 14, color: '#1db954' }} />,
-        label: 'Connect Spotify Web',
-        onClick: () => dispatch(loginToSpotify()),
+        key: 'sign-in-modal',
+        icon: <FaHeadphones style={{ fontSize: 14, color: '#1db954' }} />,
+        label: 'Sign In / Register',
+        onClick: handleOpenModal,
       },
       {
         key: 'jam-rooms',

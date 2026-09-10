@@ -46,7 +46,7 @@ export const LibraryTitle = memo(() => {
 
   const handleOpenFollowedArtists = () => {
     dispatch(yourLibraryActions.setFilter({ filter: 'ARTISTS' }));
-    navigate(`/users/${userId}/artists`);
+    navigate('/artists?filter=following');
   };
 
   if (collapsed) {

@@ -59,6 +59,13 @@ const generateRandomString = (length: number) => {
 };
 
 const logInWithSpotify = async () => {
+  if (!client_id) {
+    if (window.location.pathname !== '/login') {
+      window.location.href = '/login';
+    }
+    return;
+  }
+
   // Always mint a fresh verifier so the challenge sent to /authorize and the
   // verifier sent to /api/token are guaranteed to be the same pair.
   const codeVerifier = generateRandomString(64);
@@ -137,11 +144,21 @@ const getToken = async () => {
   const urlParams = new URLSearchParams(window.location.search);
 
   let code = urlParams.get('code') as string;
-  if (code) {
-    // Strip ?code from the URL immediately so a reload can't re-exchange a
-    // spent authorization code.
+  let error = urlParams.get('error') as string;
+
+  // If there's an error or missing client_id, strip query params immediately without redirecting externally
+  if (error || (code && !client_id)) {
     window.history.replaceState({}, document.title, window.location.pathname);
-    return [await requestToken(code), true];
+    return [null, false];
+  }
+
+  if (code && client_id) {
+    window.history.replaceState({}, document.title, window.location.pathname);
+    try {
+      return [await requestToken(code), true];
+    } catch {
+      return [null, false];
+    }
   }
 
   return [null, false];

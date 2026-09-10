@@ -84,10 +84,15 @@ export const RoomsPage: FC = memo(() => {
   return (
     <div
       style={{
+        height: '100%',
         minHeight: '100%',
+        flex: 1,
         padding: '24px 32px 100px',
         color: '#ffffff',
         background: 'linear-gradient(180deg, #132f22 0%, #121212 320px)',
+        overflowY: 'auto',
+        borderRadius: '8px',
+        boxSizing: 'border-box',
       }}
     >
       {/* Hero Header */}
@@ -450,8 +455,9 @@ export const RoomsPage: FC = memo(() => {
                       }}
                     >
                       <img
-                        src={room.host_avatar}
+                        src={room.host_avatar?.startsWith('/media/') ? `http://127.0.0.1:8000${room.host_avatar}` : (room.host_avatar || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png')}
                         alt={room.host_name}
+                        onError={(e) => { e.currentTarget.src = 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'; }}
                         style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }}
                       />
                       <span style={{ fontSize: '13px', color: '#b3b3b3' }}>

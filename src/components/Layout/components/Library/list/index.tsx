@@ -9,8 +9,9 @@ import { FaMicrophone } from 'react-icons/fa6';
 // Redux
 import { useAppDispatch, useAppSelector } from '../../../../../store/store';
 import { getLibraryItems } from '../../../../../store/slices/yourLibrary';
+import { useNavigate } from 'react-router-dom';
 import { GridItemComponent } from '../../../../Lists/list';
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { isActiveOnOtherDevice } from '../../../../../store/slices/spotify';
 import useIsMobile from '../../../../../utils/isMobile';
@@ -46,6 +47,7 @@ const YourLibrary = () => {
         <Col style={collapsed ? {} : COLLAPSED_STYLE}>
           <div
             className='library-list'
+            id='library-list-scrollable'
             style={{
               overflowY: 'scroll',
               overflowX: 'hidden',
@@ -73,6 +75,7 @@ const AnonymousContent = () => {
 const LoggedContent = memo(() => {
   const isMobile = useIsMobile();
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const items = useAppSelector(getLibraryItems);
   const collapsed = useAppSelector(getLibraryCollapsed);
   const view = useAppSelector((state) => state.yourLibrary.view);
@@ -80,6 +83,28 @@ const LoggedContent = memo(() => {
   const filter = useAppSelector((state) => state.yourLibrary.filter);
   const [t] = useTranslation(['navbar']);
 
+  const [visibleCount, setVisibleCount] = useState(30);
+
+  useEffect(() => {
+    setVisibleCount(30);
+  }, [search, filter, items.length]);
+
+  useEffect(() => {
+    const scrollContainer = document.getElementById('library-list-scrollable');
+    if (!scrollContainer) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+      if (scrollHeight - scrollTop - clientHeight < 150) {
+        setVisibleCount((prev) => Math.min(prev + 30, items.length));
+      }
+    };
+
+    scrollContainer.addEventListener('scroll', handleScroll);
+    return () => scrollContainer.removeEventListener('scroll', handleScroll);
+  }, [items.length]);
+
+  const visibleItems = useMemo(() => items.slice(0, visibleCount), [items, visibleCount]);
   const hasNoSearchResults = Boolean(search.trim()) && items.length === 0;
 
   if (filter === 'ARTISTS' && items.length === 0 && !search.trim()) {
@@ -91,9 +116,27 @@ const LoggedContent = memo(() => {
           <p style={{ fontWeight: 600, color: '#ffffff', fontSize: '14px', marginBottom: '6px' }}>
             No followed artists yet
           </p>
-          <p style={{ fontSize: '12px', lineHeight: '1.4' }}>
+          <p style={{ fontSize: '12px', lineHeight: '1.4', marginBottom: '14px' }}>
             Follow your favorite artists to easily find them here.
           </p>
+          <button
+            onClick={() => navigate('/artists')}
+            style={{
+              padding: '8px 18px',
+              borderRadius: '9999px',
+              background: '#ffffff',
+              color: '#000000',
+              fontWeight: 700,
+              fontSize: '12px',
+              border: 'none',
+              cursor: 'pointer',
+              transition: 'transform 0.2s ease',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.04)')}
+            onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+          >
+            Explore Artists
+          </button>
         </div>
       </>
     );
@@ -116,17 +159,18 @@ const LoggedContent = memo(() => {
             !collapsed && view === 'GRID' ? 'grid-view' : ''
           }`}
         >
-          {items.map((item) => {
-            if (collapsed) return <ListItemComponent key={item.id} item={item} />;
+          {visibleItems.map((item) => {
+            const itemKey = `${item.type || 'item'}-${item.id}`;
+            if (collapsed) return <ListItemComponent key={itemKey} item={item} />;
 
             return (
               <div
-                key={item.id}
+                key={itemKey}
                 onClick={isMobile ? () => dispatch(uiActions.collapseLibrary()) : undefined}
               >
-                {view === 'LIST' ? <ListItemComponent key={item.id} item={item} /> : ''}
-                {view === 'COMPACT' ? <CompactItemComponent key={item.id} item={item} /> : ''}
-                {view === 'GRID' ? <GridItemComponent key={item.id} item={item} /> : ''}
+                {view === 'LIST' ? <ListItemComponent key={itemKey} item={item} /> : ''}
+                {view === 'COMPACT' ? <CompactItemComponent key={itemKey} item={item} /> : ''}
+                {view === 'GRID' ? <GridItemComponent key={itemKey} item={item} /> : ''}
               </div>
             );
           })}

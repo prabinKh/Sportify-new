@@ -177,6 +177,13 @@ class RoomPlaybackSyncAPIView(APIView):
         if action == 'play':
             room.is_playing = True
             room.position_updated_at = now
+        elif action == 'heartbeat':
+            if position_raw is not None:
+                try:
+                    room.position_seconds = max(0.0, float(position_raw))
+                except (ValueError, TypeError):
+                    pass
+            room.position_updated_at = now
         elif action == 'pause':
             # Save exact position at pause time
             if room.is_playing:

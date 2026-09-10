@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FaMicrophone, FaUserCheck, FaMagnifyingGlass } from 'react-icons/fa6';
 import { Row, Col, Space } from 'antd';
+import InfiniteScroll from 'react-infinite-scroll-component';
 
 // Redux
 import { useAppDispatch, useAppSelector } from '../../store/store';
@@ -29,12 +30,12 @@ export const ArtistsPage: FC<ArtistsPageProps> = memo(() => {
 
   useEffect(() => {
     const filter = new URLSearchParams(location.search).get('filter');
-    if (filter === 'following') {
+    if (filter === 'following' || location.pathname.includes('/users/')) {
       setActiveTab('FOLLOWED');
-    } else if (filter === 'all') {
+    } else {
       setActiveTab('ALL');
     }
-  }, [location.search]);
+  }, [location.search, location.pathname]);
   const [search, setSearch] = useState('');
   const [allArtists, setAllArtists] = useState<Artist[]>([]);
   const [followedList, setFollowedList] = useState<Artist[]>([]);
@@ -69,12 +70,21 @@ export const ArtistsPage: FC<ArtistsPageProps> = memo(() => {
   }, [followedList, followedArtists]);
 
   const displayedArtists = useMemo(() => {
-    const list = activeTab === 'FOLLOWED' ? effectiveFollowed : allArtists;
+    let list = activeTab === 'FOLLOWED' ? effectiveFollowed : allArtists;
+    if (!list || !list.length) {
+      list = allArtists.length ? allArtists : followedArtists;
+    }
     if (!search.trim()) return list;
     return list.filter((artist) =>
       artist.name?.toLowerCase().includes(search.trim().toLowerCase())
     );
-  }, [activeTab, effectiveFollowed, allArtists, search]);
+  }, [activeTab, effectiveFollowed, allArtists, followedArtists, search]);
+
+  const [visibleLimit, setVisibleLimit] = useState(24);
+
+  const paginatedArtists = useMemo(() => {
+    return displayedArtists.slice(0, visibleLimit);
+  }, [displayedArtists, visibleLimit]);
 
   return (
     <div
@@ -232,13 +242,21 @@ export const ArtistsPage: FC<ArtistsPageProps> = memo(() => {
         </div>
       </div>
 
-      {/* Artists Grid */}
+      {/* Artists Grid with Infinite Scroll */}
       {displayedArtists.length > 0 ? (
-        <GridItemList
-          multipleRows
-          items={displayedArtists}
-          title={activeTab === 'FOLLOWED' ? 'Followed Artists' : 'All Artists'}
-        />
+        <InfiniteScroll
+          loader={null}
+          scrollThreshold={0.8}
+          dataLength={paginatedArtists.length}
+          next={() => setVisibleLimit((prev) => prev + 24)}
+          hasMore={paginatedArtists.length < displayedArtists.length}
+        >
+          <GridItemList
+            multipleRows
+            items={paginatedArtists}
+            title={activeTab === 'FOLLOWED' ? 'Followed Artists' : 'All Artists'}
+          />
+        </InfiniteScroll>
       ) : (
         <div
           style={{

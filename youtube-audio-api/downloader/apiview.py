@@ -70,6 +70,31 @@ class AudioFileListAPIView(generics.ListAPIView):
         return ctx
 
 
+def paginate_queryset_if_requested(view, request, queryset):
+    limit_param = request.query_params.get('limit')
+    offset_param = request.query_params.get('offset', 0)
+
+    if limit_param is not None:
+        try:
+            limit = int(limit_param)
+            offset = int(offset_param)
+            total = queryset.count()
+            items_qs = queryset[offset:offset + limit]
+            serializer = view.get_serializer(items_qs, many=True)
+            has_more = (offset + limit) < total
+            return Response({
+                'items': serializer.data,
+                'total': total,
+                'count': total,
+                'offset': offset,
+                'limit': limit,
+                'has_more': has_more,
+            })
+        except (ValueError, TypeError):
+            pass
+    return None
+
+
 # ── Artist APIs: only channels that have at least one downloaded audio ─────────
 
 class ArtistListAPIView(generics.ListAPIView):
@@ -86,6 +111,13 @@ class ArtistListAPIView(generics.ListAPIView):
             .filter(audio_count__gt=0)
             .order_by('id')
         )
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        res = paginate_queryset_if_requested(self, request, queryset)
+        if res is not None:
+            return res
+        return super().list(request, *args, **kwargs)
 
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
@@ -150,6 +182,13 @@ class LocalTrackListAPIView(generics.ListAPIView):
             .order_by('-downloaded_at')
         )
 
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        res = paginate_queryset_if_requested(self, request, queryset)
+        if res is not None:
+            return res
+        return super().list(request, *args, **kwargs)
+
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
         ctx['request'] = self.request
@@ -197,6 +236,13 @@ class SearchLocalTracksAPIView(generics.ListAPIView):
                 Q(title__icontains=q) | Q(youtube_channel__name__icontains=q)
             )
         return qs
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        res = paginate_queryset_if_requested(self, request, queryset)
+        if res is not None:
+            return res
+        return super().list(request, *args, **kwargs)
 
     def get_serializer_context(self):
         ctx = super().get_serializer_context()

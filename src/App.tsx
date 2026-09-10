@@ -156,13 +156,19 @@ const RoutesComponent = memo(() => {
       className='Main-section'
       ref={container}
       style={{
-        height: user ? undefined : `calc(100vh - 50px)`,
+        height: '100%',
+        width: '100%',
+        overflowY: 'auto',
+        borderRadius: '8px',
       }}
     >
       <div
         style={{
-          minHeight: user ? 'calc(100vh - 230px)' : 'calc(100vh - 100px)',
+          minHeight: '100%',
+          height: '100%',
           width: '100%',
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
         <Suspense fallback={<LoadingFallback />}>
