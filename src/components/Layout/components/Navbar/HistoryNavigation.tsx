@@ -53,7 +53,7 @@ const HistoryNavigation = memo(() => {
         </Link>
       </Tooltip>
 
-      <div className='flex flex-row items-center gap-2 h-full'>
+      <div className='flex flex-row items-center gap-2 h-full mobile-hidden'>
         <ForwardBackwardsButton flip />
         <ForwardBackwardsButton flip={false} />
       </div>

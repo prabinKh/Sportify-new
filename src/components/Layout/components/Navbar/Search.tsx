@@ -26,7 +26,11 @@ const isMac =
   typeof navigator !== 'undefined' &&
   (/Mac|iPhone|iPad|iPod/.test(navigator.platform) || navigator.userAgent.includes('Mac'));
 
-export const Search = memo(() => {
+interface SearchProps {
+  hideHomeButton?: boolean;
+}
+
+export const Search = memo(({ hideHomeButton = false }: SearchProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useAppDispatch();
@@ -192,12 +196,14 @@ export const Search = memo(() => {
   const showSuggestions = dropdownOpen && !!query;
 
   return (
-    <Space size={10} align='center'>
-      <NavigationButton
-        text={t('Home')}
-        icon={isHome ? <ActiveHomeIcon /> : <HomeIcon />}
-        onClick={() => navigate('/')}
-      />
+    <Space size={10} align='center' style={{ width: '100%' }}>
+      {!hideHomeButton && (
+        <NavigationButton
+          text={t('Home')}
+          icon={isHome ? <ActiveHomeIcon /> : <HomeIcon />}
+          onClick={() => navigate('/')}
+        />
+      )}
 
       <div
         ref={containerRef}

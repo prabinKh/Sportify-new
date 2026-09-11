@@ -19,6 +19,7 @@ import { isActiveOnOtherDevice, spotifyActions } from '../../store/slices/spotif
 import { getLibraryCollapsed, isRightLayoutOpen, uiActions } from '../../store/slices/ui';
 import { LoginFooter } from './components/LoginFooter';
 import { LoginModal } from '../Modals/LoginModal';
+import { MobileBottomNav } from '../MobileBottomNav';
 import useIsMobile from '../../utils/isMobile';
 
 const pct = (value: number) => `${value}%`;
@@ -36,10 +37,13 @@ export const AppLayout: FC<{ children: ReactElement }> = memo((props) => {
   const isMobile = useIsMobile();
   const showDetails = rightLayoutOpen && hasState;
 
+  const basePanels = isMobile ? ['center'] : ['left', 'center'];
+  const panelIds = showDetails ? [...basePanels, 'details-section'] : basePanels;
+
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({
     id: 'persistence',
     storage: localStorage,
-    panelIds: showDetails ? ['left', 'center', 'details-section'] : ['left', 'center'],
+    panelIds: panelIds,
   });
 
   useEffect(() => {
@@ -90,8 +94,9 @@ export const AppLayout: FC<{ children: ReactElement }> = memo((props) => {
             display: 'flex',
             flexDirection: 'column',
             height: `calc(100vh - ${
-              activeOnOtherDevice ? '141' : !user && isMobile ? '0' : '120'
+              activeOnOtherDevice ? '141' : !user && isMobile ? '0' : isMobile ? '120' : '120'
             }px)`,
+            marginBottom: isMobile ? '60px' : '0', // Add margin bottom for mobile nav
           }}
         >
           <Col span={24} style={{ flex: '0 0 auto' }}>
@@ -113,17 +118,19 @@ export const AppLayout: FC<{ children: ReactElement }> = memo((props) => {
               onLayoutChanged={onLayoutChanged}
               style={{ height: '100%', width: '100%' }}
             >
-              <Panel
-                id='left'
-                className='mobile-hidden'
-                groupResizeBehavior={libraryCollapsed ? 'preserve-pixel-size' : 'preserve-relative-size'}
-                {...leftPanelSize}
-                style={{ borderRadius: 5 }}
-              >
-                <Library />
-              </Panel>
+              {!isMobile && (
+                <Panel
+                  id='left'
+                  className='desktop-only'
+                  groupResizeBehavior={libraryCollapsed ? 'preserve-pixel-size' : 'preserve-relative-size'}
+                  {...leftPanelSize}
+                  style={{ borderRadius: 5 }}
+                >
+                  <Library />
+                </Panel>
+              )}
 
-              {!isMobile ? <Separator className='resize-handler' /> : null}
+              {!isMobile ? <Separator className='resize-handler desktop-only' /> : null}
 
               <Panel id='center' style={{ borderRadius: 5 }}>
                 {/* Home | Playlists */}
@@ -132,13 +139,14 @@ export const AppLayout: FC<{ children: ReactElement }> = memo((props) => {
 
               {showDetails ? (
                 <>
-                  {!isTablet ? <Separator className='resize-handler' /> : null}
+                  {!isTablet ? <Separator className='resize-handler desktop-only' /> : null}
                   <Panel
                     id='details-section'
                     minSize={pct(23)}
                     maxSize={pct(30)}
                     defaultSize={pct(25)}
                     style={{ borderRadius: 5 }}
+                    className='desktop-only'
                   >
                     <PlayingNow />
                   </Panel>
@@ -148,6 +156,8 @@ export const AppLayout: FC<{ children: ReactElement }> = memo((props) => {
           </Col>
         </Row>
       </div>
+
+      <MobileBottomNav />
 
       {<footer>{user ? <PlayingBar /> : <LoginFooter />}</footer>}
     </>

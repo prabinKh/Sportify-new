@@ -24,7 +24,7 @@ import { authActions, loginToSpotify } from '../../../../store/slices/auth';
 import { useAppDispatch, useAppSelector } from '../../../../store/store';
 import { Tooltip } from '../../../Tooltip';
 
-const Header = ({ opacity }: { opacity: number; title?: string }) => {
+const Header = ({ opacity, isMobile }: { opacity: number; title?: string; isMobile?: boolean }) => {
   const { t } = useTranslation(['navbar', 'home']);
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
@@ -198,6 +198,59 @@ const Header = ({ opacity }: { opacity: number; title?: string }) => {
   };
 
   const menuItems = getMenuItems();
+
+  if (isMobile) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', width: '100%', marginTop: '10px' }}>
+        <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', marginBottom: '8px' }} />
+        {menuItems?.map((item: any, i: number) => {
+          if (item?.type === 'divider') {
+            return <div key={i} style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '8px 0' }} />;
+          }
+          if (item?.disabled) {
+            return (
+              <div key={item.key} style={{ padding: '4px 10px', opacity: 0.8 }}>
+                {item.label}
+              </div>
+            );
+          }
+          return (
+            <button
+              key={item.key}
+              onClick={item.onClick}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                width: '100%',
+                padding: '10px 14px',
+                borderRadius: '6px',
+                border: 'none',
+                background: 'transparent',
+                color: item.danger ? '#ef4444' : '#d1d5db',
+                fontSize: '14px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                textAlign: 'left',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+                if (!item.danger) e.currentTarget.style.color = '#fff';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = item.danger ? '#ef4444' : '#d1d5db';
+              }}
+            >
+              {item.icon && <span style={{ opacity: 0.8 }}>{item.icon}</span>}
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div

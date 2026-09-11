@@ -1,4 +1,5 @@
 // variable desktop breakpoint
+$mobile-breakpoint: 600px;
 $desktop-breakpoint: 768px;
 $desktop-small-breakpoint: 900px;
 
@@ -10,3 +11,36 @@ $container-border-radius: 10px;
 
 $text-primary-color: white;
 $text-secondary-color: #b3b3b3;
+
+// Global utility classes for responsiveness
+.mobile-only {
+  display: none !important;
+  @media (max-width: $desktop-breakpoint) {
+    display: block !important;
+  }
+}
+
+.mobile-flex {
+  display: none !important;
+  @media (max-width: $desktop-breakpoint) {
+    display: flex !important;
+  }
+}
+
+.desktop-only {
+  @media (max-width: $desktop-breakpoint) {
+    display: none !important;
+  }
+}
+
+.mobile-hidden {
+  @media (max-width: $desktop-breakpoint) {
+    display: none !important;
+  }
+}
+
+.tablet-hidden {
+  @media (max-width: $desktop-small-breakpoint) {
+    display: none !important;
+  }
+}

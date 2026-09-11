@@ -1,27 +1,16 @@
 import SongDetails from './SongDetails';
 import { useAppDispatch, useAppSelector } from '../../../../store/store';
 import { Col, Row } from 'antd';
-import { ListIcon, Pause, Play } from '../../../Icons';
+import { ListIcon } from '../../../Icons';
 
 // Redux
-import { playerService } from '../../../../services/player';
 import { useEffect, useState } from 'react';
 import { getImageAnalysis2 } from '../../../../utils/imageAnyliser';
 import { uiActions } from '../../../../store/slices/ui';
 import tinycolor from 'tinycolor2';
 import { AddSongToLibraryButton } from '../../../Actions/AddSongToLibrary';
 import { spotifyActions } from '../../../../store/slices/spotify';
-
-const PlayButton = () => {
-  const paused = useAppSelector((state) => state.spotify.state?.paused);
-  return (
-    <button
-      onClick={() => (!paused ? playerService.pausePlayback() : playerService.startPlayback())}
-    >
-      {paused ? <Play /> : <Pause />}
-    </button>
-  );
-};
+import ControlButtons from './ControlButtons';
 
 const QueueButton = () => {
   const dispatch = useAppDispatch();
@@ -61,9 +50,14 @@ const NowPlayingBarMobile = () => {
     <div>
       <div
         className='mobile-player'
-        style={{ background: `linear-gradient(${currentColor} -50%, rgb(18, 18, 18) 300%)` }}
+        style={{ 
+          background: `linear-gradient(${currentColor} -50%, rgb(18, 18, 18) 300%)`,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px'
+        }}
       >
-        <Row justify='space-between'>
+        <Row justify='space-between' align='middle'>
           <Col>
             <SongDetails isMobile />
           </Col>
@@ -72,13 +66,10 @@ const NowPlayingBarMobile = () => {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                minWidth: 50,
                 marginRight: 5,
                 gap: 15,
-                justifyContent: 'space-between',
               }}
             >
-              <QueueButton />
               <AddSongToLibraryButton
                 size={17}
                 isSaved={liked}
@@ -87,11 +78,18 @@ const NowPlayingBarMobile = () => {
                   dispatch(spotifyActions.setLiked({ liked: !liked }));
                 }}
               />
-              <PlayButton />
+              <QueueButton />
             </div>
           </Col>
         </Row>
-        <div className='time-line'>
+
+        <Row justify='center'>
+          <div style={{ transform: 'scale(0.9)' }}>
+            <ControlButtons />
+          </div>
+        </Row>
+
+        <div className='time-line' style={{ marginTop: 5 }}>
           <div
             className='current-time'
             style={{

@@ -9,6 +9,8 @@ import { useTranslation } from 'react-i18next';
 // Redux
 import { useAppSelector } from '../../../../store/store';
 import { useNavigate, useParams } from 'react-router-dom';
+import useIsMobile from '../../../../utils/isMobile';
+import { Search } from '../../../../components/Layout/components/Navbar/Search';
 
 interface HomeHeaderProps {
   color: string;
@@ -23,6 +25,7 @@ export const SearchHeader: FC<HomeHeaderProps> = (props) => {
 
   const navigate = useNavigate();
   const [t] = useTranslation(['home']);
+  const isMobile = useIsMobile();
 
   const params = useParams<{ search: string }>();
   const section = useAppSelector((state) => state.search.section);
@@ -34,8 +37,13 @@ export const SearchHeader: FC<HomeHeaderProps> = (props) => {
       container={container}
       sectionContainer={sectionContainer}
     >
-      <div>
-        <Space size={10} style={{ marginLeft: 10, marginTop: 5, marginBottom: 5 }}>
+      <div style={{ padding: isMobile ? '0 10px' : 0 }}>
+        {isMobile && (
+          <div style={{ marginBottom: 10, width: '100%' }}>
+            <Search hideHomeButton />
+          </div>
+        )}
+        <Space size={10} style={{ marginLeft: isMobile ? 0 : 10, marginTop: 5, marginBottom: 5 }}>
           {SECTIONS.map((item) => (
             <Chip
               key={item}

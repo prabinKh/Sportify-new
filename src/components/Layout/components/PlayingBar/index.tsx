@@ -20,7 +20,6 @@ const NowPlayingBar = () => {
 
       <div className='mobile-bar'>
         <NowPlayingBarMobile />
-        <MobileMenu />
       </div>
     </>
   );

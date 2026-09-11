@@ -359,6 +359,12 @@
 
   @media (max-width: $desktop-breakpoint) {
     --min-column-width: 140px;
+    --grid-gap: 16px;
+  }
+
+  @media (max-width: $mobile-breakpoint) {
+    --min-column-width: 120px;
+    --grid-gap: 12px;
   }
 
   &--horizontal {

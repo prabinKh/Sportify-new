@@ -3,7 +3,11 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { FaListUl, FaMicrophone, FaUserCheck, FaUsers, FaCommentDots, FaRadio, FaChevronDown } from 'react-icons/fa6';
 import { Space } from 'antd';
 
-export const NavbarQuickLinks: FC = memo(() => {
+interface NavbarQuickLinksProps {
+  isMobile?: boolean;
+}
+
+export const NavbarQuickLinks: FC<NavbarQuickLinksProps> = memo(({ isMobile = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [socialOpen, setSocialOpen] = useState(false);
@@ -82,8 +86,8 @@ export const NavbarQuickLinks: FC = memo(() => {
   ];
 
   return (
-    <div className='navbar-quick-links' style={{ display: 'flex', alignItems: 'center' }}>
-      <Space size={8}>
+    <div className='navbar-quick-links' style={{ display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', flexDirection: isMobile ? 'column' : 'row' }}>
+      <Space size={8} direction={isMobile ? 'vertical' : 'horizontal'}>
         {/* Playlists Button */}
         <button
           onClick={() => navigate('/playlist')}
@@ -120,144 +124,161 @@ export const NavbarQuickLinks: FC = memo(() => {
           <span>Following</span>
         </button>
 
-        {/* Social Dropdown — Friends, Messages, Live Rooms */}
-        <div ref={dropdownRef} style={{ position: 'relative' }}>
-          <button
-            onClick={() => setSocialOpen((prev) => !prev)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '7px',
-              padding: '7px 15px',
-              borderRadius: '9999px',
-              border: isSocialActive
-                ? 'none'
-                : socialOpen
-                ? '1px solid rgba(139, 92, 246, 0.5)'
-                : '1px solid rgba(255, 255, 255, 0.14)',
-              background: isSocialActive
-                ? (isFriendsActive ? '#f59e0b' : isMessagesActive ? '#3b82f6' : '#10b981')
-                : socialOpen
-                ? 'rgba(139, 92, 246, 0.18)'
-                : 'rgba(255, 255, 255, 0.08)',
-              color: isSocialActive ? '#000000' : socialOpen ? '#c4b5fd' : '#d1d5db',
-              fontSize: '13px',
-              fontWeight: 700,
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              boxShadow: isSocialActive ? '0 2px 10px rgba(0, 0, 0, 0.25)' : 'none',
-              whiteSpace: 'nowrap' as const,
-            }}
-            onMouseEnter={(e) => {
-              if (!isSocialActive && !socialOpen) {
-                e.currentTarget.style.background = 'rgba(139, 92, 246, 0.15)';
-                e.currentTarget.style.color = '#c4b5fd';
-                e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.4)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!isSocialActive && !socialOpen) {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
-                e.currentTarget.style.color = '#d1d5db';
-                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.14)';
-              }
-            }}
-            title='Social — Friends, Messages, Live Rooms'
-          >
-            {/* Show active page icon or default */}
-            {isFriendsActive ? <FaUsers size={12} /> : isMessagesActive ? <FaCommentDots size={12} /> : isRoomsActive ? <FaRadio size={12} /> : <FaUsers size={12} />}
-            <span>{isFriendsActive ? 'Friends' : isMessagesActive ? 'Messages' : isRoomsActive ? 'Live Rooms' : 'Social'}</span>
-            <FaChevronDown
-              size={9}
+        {/* Social Links — Flattened on mobile, Dropdown on desktop */}
+        {isMobile ? (
+          <>
+            {socialItems.map((item) => (
+              <button
+                key={item.key}
+                onClick={() => navigate(item.path)}
+                style={getButtonStyle(item.isActive, item.color)}
+                onMouseEnter={(e) => hoverIn(e, item.isActive)}
+                onMouseLeave={(e) => hoverOut(e, item.isActive)}
+              >
+                <span style={{ color: item.isActive ? '#000' : item.color }}>{item.icon}</span>
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </>
+        ) : (
+          <div ref={dropdownRef} style={{ position: 'relative' }}>
+            <button
+              onClick={() => setSocialOpen((prev) => !prev)}
               style={{
-                transition: 'transform 0.2s ease',
-                transform: socialOpen ? 'rotate(180deg)' : 'rotate(0)',
-                opacity: 0.7,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '7px',
+                padding: '7px 15px',
+                borderRadius: '9999px',
+                border: isSocialActive
+                  ? 'none'
+                  : socialOpen
+                  ? '1px solid rgba(139, 92, 246, 0.5)'
+                  : '1px solid rgba(255, 255, 255, 0.14)',
+                background: isSocialActive
+                  ? (isFriendsActive ? '#f59e0b' : isMessagesActive ? '#3b82f6' : '#10b981')
+                  : socialOpen
+                  ? 'rgba(139, 92, 246, 0.18)'
+                  : 'rgba(255, 255, 255, 0.08)',
+                color: isSocialActive ? '#000000' : socialOpen ? '#c4b5fd' : '#d1d5db',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                boxShadow: isSocialActive ? '0 2px 10px rgba(0, 0, 0, 0.25)' : 'none',
+                whiteSpace: 'nowrap' as const,
               }}
-            />
-          </button>
-
-          {/* Dropdown menu */}
-          {socialOpen && (
-            <div
-              style={{
-                position: 'absolute',
-                top: 'calc(100% + 8px)',
-                right: 0,
-                minWidth: '200px',
-                padding: '6px',
-                borderRadius: '10px',
-                background: '#282828',
-                border: '1px solid rgba(255,255,255,0.08)',
-                boxShadow: '0 16px 32px rgba(0,0,0,0.5), 0 4px 12px rgba(0,0,0,0.3)',
-                zIndex: 1500,
-                animation: 'socialDropdownIn 0.15s ease-out',
+              onMouseEnter={(e) => {
+                if (!isSocialActive && !socialOpen) {
+                  e.currentTarget.style.background = 'rgba(139, 92, 246, 0.15)';
+                  e.currentTarget.style.color = '#c4b5fd';
+                  e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.4)';
+                }
               }}
+              onMouseLeave={(e) => {
+                if (!isSocialActive && !socialOpen) {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+                  e.currentTarget.style.color = '#d1d5db';
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.14)';
+                }
+              }}
+              title='Social — Friends, Messages, Live Rooms'
             >
-              {socialItems.map((item) => (
-                <button
-                  key={item.key}
-                  onClick={() => {
-                    navigate(item.path);
-                    setSocialOpen(false);
-                  }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '6px',
-                    border: 'none',
-                    background: item.isActive ? 'rgba(255,255,255,0.1)' : 'transparent',
-                    color: item.isActive ? item.color : '#d1d5db',
-                    fontSize: '14px',
-                    fontWeight: item.isActive ? 700 : 500,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    textAlign: 'left',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
-                    e.currentTarget.style.color = item.color;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = item.isActive ? 'rgba(255,255,255,0.1)' : 'transparent';
-                    e.currentTarget.style.color = item.isActive ? item.color : '#d1d5db';
-                  }}
-                >
-                  <span style={{ color: item.color, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    {item.hasLiveDot && (
+              {/* Show active page icon or default */}
+              {isFriendsActive ? <FaUsers size={12} /> : isMessagesActive ? <FaCommentDots size={12} /> : isRoomsActive ? <FaRadio size={12} /> : <FaUsers size={12} />}
+              <span>{isFriendsActive ? 'Friends' : isMessagesActive ? 'Messages' : isRoomsActive ? 'Live Rooms' : 'Social'}</span>
+              <FaChevronDown
+                size={9}
+                style={{
+                  transition: 'transform 0.2s ease',
+                  transform: socialOpen ? 'rotate(180deg)' : 'rotate(0)',
+                  opacity: 0.7,
+                }}
+              />
+            </button>
+
+            {/* Dropdown menu */}
+            {socialOpen && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 8px)',
+                  right: 0,
+                  minWidth: '200px',
+                  padding: '6px',
+                  borderRadius: '10px',
+                  background: '#282828',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  boxShadow: '0 16px 32px rgba(0,0,0,0.5), 0 4px 12px rgba(0,0,0,0.3)',
+                  zIndex: 1500,
+                  animation: 'socialDropdownIn 0.15s ease-out',
+                }}
+              >
+                {socialItems.map((item) => (
+                  <button
+                    key={item.key}
+                    onClick={() => {
+                      navigate(item.path);
+                      setSocialOpen(false);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      width: '100%',
+                      padding: '10px 14px',
+                      borderRadius: '6px',
+                      border: 'none',
+                      background: item.isActive ? 'rgba(255,255,255,0.1)' : 'transparent',
+                      color: item.isActive ? item.color : '#d1d5db',
+                      fontSize: '14px',
+                      fontWeight: item.isActive ? 700 : 500,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
+                      e.currentTarget.style.color = item.color;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = item.isActive ? 'rgba(255,255,255,0.1)' : 'transparent';
+                      e.currentTarget.style.color = item.isActive ? item.color : '#d1d5db';
+                    }}
+                  >
+                    <span style={{ color: item.color, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {item.hasLiveDot && (
+                        <span
+                          style={{
+                            width: '6px',
+                            height: '6px',
+                            borderRadius: '50%',
+                            background: item.color,
+                            boxShadow: `0 0 6px ${item.color}`,
+                            display: 'inline-block',
+                          }}
+                        />
+                      )}
+                      {item.icon}
+                    </span>
+                    <span>{item.label}</span>
+                    {item.isActive && (
                       <span
                         style={{
+                          marginLeft: 'auto',
                           width: '6px',
                           height: '6px',
                           borderRadius: '50%',
                           background: item.color,
-                          boxShadow: `0 0 6px ${item.color}`,
-                          display: 'inline-block',
                         }}
                       />
                     )}
-                    {item.icon}
-                  </span>
-                  <span>{item.label}</span>
-                  {item.isActive && (
-                    <span
-                      style={{
-                        marginLeft: 'auto',
-                        width: '6px',
-                        height: '6px',
-                        borderRadius: '50%',
-                        background: item.color,
-                      }}
-                    />
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </Space>
 
       {/* Inline keyframe animation */}
