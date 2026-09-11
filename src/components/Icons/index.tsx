@@ -880,3 +880,21 @@ export const PhoneIcon = (props: any) => {
     </svg>
   );
 };
+
+export const DownloadIcon = (props: any) => {
+  return (
+    <svg
+      data-encore-id='icon'
+      role='img'
+      aria-hidden='true'
+      viewBox='0 0 16 16'
+      fill='currentColor'
+      style={props.style || SongExtraControlStyle}
+      className={`hoverable-icon ${props.className || ''}`}
+      {...props}
+    >
+      <path d='M4.97 6.97a.75.75 0 0 1 1.06 0L7.25 8.19V1.75a.75.75 0 0 1 1.5 0v6.44l1.22-1.22a.75.75 0 1 1 1.06 1.06l-2.5 2.5a.75.75 0 0 1-1.06 0l-2.5-2.5a.75.75 0 0 1 0-1.06zM2 12.25a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1-.75-.75z'></path>
+    </svg>
+  );
+};
+

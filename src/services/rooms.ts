@@ -90,7 +90,7 @@ const deleteRoom = async (codeOrId: string) => {
 const syncPlayback = async (
   codeOrId: string,
   data: {
-    action: 'play' | 'pause' | 'seek' | 'change_track';
+    action: 'play' | 'pause' | 'seek' | 'change_track' | 'heartbeat';
     position_seconds?: number;
     track_id?: number;
     auto_play?: boolean;

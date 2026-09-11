@@ -9,8 +9,10 @@ import {
   AddToLibrary,
   AddedToLibrary,
   MicrophoneIcon,
+  DownloadIcon,
 } from '../Icons';
 import { Dropdown, MenuProps, message } from 'antd';
+import { downloadTrackAudio } from '../../utils/downloadAudio';
 
 // Services
 import { playerService } from '../../services/player';
@@ -65,6 +67,7 @@ export const TrackActionsWrapper: FC<TrackActionsWrapperProps> = memo((props) =>
   const dispatch = useAppDispatch();
   const myPlaylists = useAppSelector(getUserPlaylists);
   const userId = useAppSelector((state) => state.auth.user?.id);
+  const user = useAppSelector((state) => state.auth.user);
   const currentSong = useAppSelector(
     (state) => state.spotify.state?.track_window?.current_track?.id
   );
@@ -275,6 +278,15 @@ export const TrackActionsWrapper: FC<TrackActionsWrapperProps> = memo((props) =>
         const trId = track.id || track.uri.split(':').reverse()[0];
         playerService.startPlayback({ uris: [track.uri] }).catch(() => {});
         navigate(`/karaoke/${trId}`);
+      },
+    });
+
+    items.push({
+      label: t('Download Audio (MP3)') || 'Download Audio (MP3)',
+      key: 'download',
+      icon: <DownloadIcon style={{ height: 16, width: 16, fill: '#1db954', color: '#1db954' }} />,
+      onClick: () => {
+        downloadTrackAudio(track, user, dispatch);
       },
     });
 

@@ -734,8 +734,9 @@ export const RoomView: FC = memo(() => {
           onEnded={() => {
             // When a track ends, only the host advances or pauses for the room
             if (isHostRef.current && roomRef.current) {
-              if (availableTracks.length > 0 && currentTrack) {
-                const idx = availableTracks.findIndex((t) => t.id === currentTrack.id);
+              const curTrk = roomRef.current.current_track;
+              if (availableTracks.length > 0 && curTrk) {
+                const idx = availableTracks.findIndex((t) => t.id === curTrk.id);
                 const nextIdx = idx >= 0 ? (idx + 1) % availableTracks.length : 0;
                 const nextTrack = availableTracks[nextIdx];
                 if (nextTrack) {

@@ -1,7 +1,8 @@
 import { FC, memo, useCallback, useMemo } from 'react';
 import { FaLock, FaUnlock } from 'react-icons/fa6';
 import { Dropdown, MenuProps, message } from 'antd';
-import { DeleteIcon, AddToQueueIcon, EditIcon, AddedToLibrary, AddToLibrary } from '../Icons';
+import { DeleteIcon, AddToQueueIcon, EditIcon, AddedToLibrary, AddToLibrary, DownloadIcon } from '../Icons';
+import { downloadPlaylistAudio } from '../../utils/downloadAudio';
 
 // Services
 import { userService } from '../../services/users';
@@ -37,9 +38,10 @@ export const PlayistActionsWrapper: FC<PlayistActionsWrapperProps> = memo((props
   const navigate = useNavigate();
 
   const dispatch = useAppDispatch();
-  const userId = useAppSelector((state) => state.auth.user?.id);
+  const user = useAppSelector((state) => state.auth.user);
+  const userId = user?.id;
   const myPlaylists = useAppSelector((state) => state.yourLibrary.myPlaylists);
-  
+
   const isSelfCreated = useMemo(() => {
     if (!playlist) return false;
     if ((playlist as any).is_own) return true;
@@ -199,8 +201,17 @@ export const PlayistActionsWrapper: FC<PlayistActionsWrapperProps> = memo((props
       },
     });
 
+    items.push({
+      label: t('Download Playlist (ZIP)') || 'Download Playlist (ZIP)',
+      key: 'download_zip',
+      icon: <DownloadIcon style={{ height: 16, width: 16, fill: '#1db954', color: '#1db954' }} />,
+      onClick: () => {
+        downloadPlaylistAudio(playlist, user, dispatch);
+      },
+    });
+
     return items;
-  }, [canEdit, dispatch, handleUserValidation, inLibrary, playlist, props, t]);
+  }, [canEdit, dispatch, handleUserValidation, inLibrary, playlist, props, t, user]);
 
   return (
     <Dropdown menu={{ items }} trigger={props.trigger}>

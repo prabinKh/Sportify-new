@@ -117,6 +117,8 @@ const RoutesComponent = memo(() => {
       { public: false, path: '/messages', element: <MessagesPage /> },
       { public: false, path: '/messages/:userId', element: <MessagesPage /> },
       { public: true, path: '/collection/tracks', element: <LikedSongsPage container={container} /> },
+      { public: true, path: '/collection/playlists', element: <PlaylistsPage container={container} /> },
+      { public: true, path: '/collection/albums', element: <BrowsePage /> },
       { public: true, path: '/playlist', element: <PlaylistsPage container={container} /> },
       { public: true, path: '/playlists', element: <PlaylistsPage container={container} /> },
       { public: true, path: '/playlist/:playlistId', element: <PlaylistView container={container} /> },

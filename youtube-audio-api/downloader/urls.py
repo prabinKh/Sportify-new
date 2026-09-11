@@ -13,6 +13,7 @@ from .apiview import (
     ListeningHistoryAPIView,
     FollowedArtistListAPIView, FollowArtistToggleAPIView, CheckFollowedArtistAPIView,
     ArtistPlaylistsAPIView, SyncChannelAPIView, MediaFileStemAPIView,
+    TrackDownloadAPIView, PlaylistDownloadAPIView,
 )
 
 urlpatterns = [
@@ -32,6 +33,7 @@ urlpatterns = [
     path('api/channels/<int:channel_id>/media/', MediaFileListAPIView.as_view(), name='api_media_list'),
     path('api/media/<int:pk>/', MediaFileDetailAPIView.as_view(), name='api_media_detail'),
     path('api/media/<int:pk>/stem/', MediaFileStemAPIView.as_view(), name='api_media_stem'),
+    path('api/media/<int:pk>/download/', TrackDownloadAPIView.as_view(), name='api_media_download'),
     path('api/audio/', AudioFileListAPIView.as_view(), name='api_audio_list'),
 
     # ── REST API: artists (channels with ≥1 downloaded audio) ─────────────────
@@ -44,11 +46,13 @@ urlpatterns = [
     # ── REST API: flat track list + search ────────────────────────────────────
     path('api/tracks/', AllLocalTracksAPIView.as_view(), name='api_all_tracks'),
     path('api/tracks/search/', SearchLocalTracksAPIView.as_view(), name='api_search_tracks'),
+    path('api/tracks/<int:pk>/download/', TrackDownloadAPIView.as_view(), name='api_track_download'),
 
     # ── REST API: Playlists ────────────────────────────────────────────────────
     path('api/playlists/', PlaylistListCreateAPIView.as_view(), name='api_playlist_list_create'),
     path('api/playlists/<int:pk>/', PlaylistDetailAPIView.as_view(), name='api_playlist_detail'),
     path('api/playlists/<int:pk>/tracks/', PlaylistTrackAddRemoveAPIView.as_view(), name='api_playlist_track_add_remove'),
+    path('api/playlists/<int:pk>/download/', PlaylistDownloadAPIView.as_view(), name='api_playlist_download'),
 
     # ── REST API: Favorites & History ──────────────────────────────────────────
     path('api/favorites/', FavoriteTrackListAPIView.as_view(), name='api_favorite_list'),

@@ -1,7 +1,8 @@
 import { FC, memo, useCallback, useMemo } from 'react';
 
 import { Dropdown, MenuProps, message } from 'antd';
-import { AddToQueueIcon, AddedToLibrary, AddToLibrary, AddToPlaylist } from '../Icons';
+import { AddToQueueIcon, AddedToLibrary, AddToLibrary, AddToPlaylist, DownloadIcon } from '../Icons';
+import { downloadPlaylistAudio, downloadTrackAudio } from '../../utils/downloadAudio';
 
 // Services
 import { playerService } from '../../services/player';
@@ -34,7 +35,8 @@ export const AlbumActionsWrapper: FC<AlbumActionsWrapperProps> = memo((props) =>
   const { t } = useTranslation(['playlist']);
 
   const dispatch = useAppDispatch();
-  const user = useAppSelector((state) => state.auth.user?.id);
+  const user = useAppSelector((state) => state.auth.user);
+  const userId = user?.id;
   const myAlbums = useAppSelector((state) => state.yourLibrary.myAlbums);
   const myPlaylists = useAppSelector((state) => state.yourLibrary.myPlaylists);
 
@@ -44,13 +46,13 @@ export const AlbumActionsWrapper: FC<AlbumActionsWrapperProps> = memo((props) =>
 
   const handleUserValidation = useCallback(
     () => {
-      if (!user || user === 'guest') {
+      if (!userId || userId === 'guest') {
         dispatch(uiActions.openLoginModal(album.images?.[0]?.url || 'https://cdn-icons-png.flaticon.com/512/1384/1384060.png'));
         return false;
       }
       return true;
     },
-    [dispatch, user, album]
+    [dispatch, userId, album]
   );
 
   const options = useMemo(() => {
@@ -148,6 +150,14 @@ export const AlbumActionsWrapper: FC<AlbumActionsWrapperProps> = memo((props) =>
           });
         },
       },
+      {
+        label: t('Download Album (MP3)') || 'Download Album (MP3)',
+        key: 'download_album',
+        icon: <DownloadIcon style={{ height: 16, width: 16, fill: '#1db954', color: '#1db954' }} />,
+        onClick: () => {
+          downloadTrackAudio(album, user, dispatch);
+        },
+      },
       { type: 'divider' },
       {
         label: t('Add to playlist'),
@@ -158,7 +168,7 @@ export const AlbumActionsWrapper: FC<AlbumActionsWrapperProps> = memo((props) =>
     );
 
     return items;
-  }, [album.id, album.uri, dispatch, handleUserValidation, inLibrary, options, t]);
+  }, [album, dispatch, handleUserValidation, inLibrary, options, t, user]);
 
   return (
     <Dropdown menu={{ items }} trigger={props.trigger}>

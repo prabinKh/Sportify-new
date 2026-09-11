@@ -261,8 +261,8 @@ export const LoginModal: FC = memo(() => {
                 fontWeight: 600,
               }}
             >
-              <img src='/logo.png' alt='Sportify' style={{ width: 18, height: 18, objectFit: 'contain' }} />
-              <span>Sportify</span>
+              <img src='/logo.png' alt='FuckSubscription' style={{ width: 18, height: 18, objectFit: 'contain' }} />
+              <span>FuckSubscription</span>
             </div>
           </div>
         </div>

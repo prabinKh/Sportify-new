@@ -41,7 +41,7 @@ export const fetchMyPlaylists = createAsyncThunk('yourLibrary/fetchMyPlaylists',
 
 export const fetchMyAlbums = createAsyncThunk('yourLibrary/fetchTopTracks', async () => {
   const response = await albumsService.fetchSavedAlbums({ limit: 50 });
-  return response.data.items.map((item) => item.album);
+  return (response.data.items || []).map((item: any) => item.album || item);
 });
 
 export const fetchMyArtists = createAsyncThunk('yourLibrary/fetchMyArtists', async () => {

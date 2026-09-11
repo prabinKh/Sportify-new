@@ -211,10 +211,10 @@ const AuthPage: FC<AuthPageProps> = memo(({ defaultMode }) => {
           <div>
             <div className='auth-brand-header'>
               <div className='brand-logo-icon'>
-                <img src='/logo.png' alt='Sportify Logo' style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                <img src='/logo.png' alt='FuckSubscription Logo' style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
               </div>
               <div className='brand-text'>
-                <h1>Sportify</h1>
+                <h1>FuckSubscription</h1>
                 <span>Audio Redefined</span>
               </div>
             </div>

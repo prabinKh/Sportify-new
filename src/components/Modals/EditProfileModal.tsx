@@ -425,7 +425,7 @@ export const EditProfileModal: FC<EditProfileModalProps> = memo(({ open, onClose
           </div>
 
           <p style={{ fontSize: '0.72rem', color: '#888', margin: 0, lineHeight: 1.4 }}>
-            By proceeding, you agree to give Sportify access to the image you choose to upload. Please make sure you have the right to upload the image.
+            By proceeding, you agree to give FuckSubscription access to the image you choose to upload. Please make sure you have the right to upload the image.
           </p>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 6 }}>

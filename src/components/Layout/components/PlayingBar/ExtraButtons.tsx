@@ -13,7 +13,9 @@ import {
   ListIcon,
   MicrophoneIcon,
   PhoneIcon,
+  DownloadIcon,
 } from '../../../Icons';
+import { downloadTrackAudio } from '../../../../utils/downloadAudio';
 
 // I18n
 import { useTranslation } from 'react-i18next';
@@ -145,6 +147,28 @@ const DeviceButton = () => {
   );
 };
 
+const DownloadCurrentTrackButton = () => {
+  const dispatch = useAppDispatch();
+  const { t } = useTranslation(['playingBar']);
+  const currentTrack = useAppSelector((state) => state.spotify.state?.track_window?.current_track);
+  const user = useAppSelector((state) => state.auth.user);
+
+  if (!currentTrack) return null;
+
+  return (
+    <Tooltip title={t('Download Audio') || 'Download Audio'}>
+      <button
+        style={{ marginLeft: 5, marginRight: 5, cursor: 'pointer' }}
+        onClick={() => {
+          downloadTrackAudio(currentTrack, user, dispatch);
+        }}
+      >
+        <DownloadIcon style={{ height: 16, width: 16 }} />
+      </button>
+    </Tooltip>
+  );
+};
+
 const ExtraControlButtons = () => {
   return (
     <div>
@@ -152,6 +176,8 @@ const ExtraControlButtons = () => {
         <DetailsButton />
 
         <LyricsButton />
+
+        <DownloadCurrentTrackButton />
 
         <QueueButton />
 

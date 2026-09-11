@@ -8,9 +8,11 @@ import {
   OrderCompactIcon,
   OrderListIcon,
   SearchIcon,
+  DownloadIcon,
 } from '../../../components/Icons';
 import { AddPlaylistToLibraryButton } from './AddPlaylistToLibrary';
 import { PlayistActionsWrapper } from '../../../components/Actions/PlaylistActions';
+import { downloadPlaylistAudio } from '../../../utils/downloadAudio';
 
 // Utils
 import { useTranslation } from 'react-i18next';
@@ -123,6 +125,29 @@ export const PlaylistControls: FC = () => {
                 <AddPlaylistToLibraryButton id={playlist!.id} />
               </div>
             ) : null}
+
+            <Tooltip title={`Download "${playlist?.name || 'Playlist'}" as ZIP`}>
+              <button
+                type='button'
+                className='scale'
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  padding: 0,
+                  cursor: 'pointer',
+                  color: '#b3b3b3',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 10,
+                }}
+                onClick={() => {
+                  if (playlist) downloadPlaylistAudio(playlist, user, dispatch);
+                }}
+              >
+                <DownloadIcon style={{ height: 22, width: 22 }} />
+              </button>
+            </Tooltip>
 
             <PlayistActionsWrapper
               playlist={playlist!}

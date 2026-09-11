@@ -1,8 +1,9 @@
+import { FC, useCallback, useMemo, useState, useEffect } from 'react';
 import { Tooltip } from 'antd';
 import ReactTimeAgo from 'react-time-ago';
-import { useCallback, useMemo } from 'react';
-import { MenuIcon, Pause, Play } from '../Icons';
+import { DownloadIcon, MenuIcon, Pause, Play } from '../Icons';
 import { TrackActionsWrapper } from '../Actions/TrackActions';
+import { downloadTrackAudio } from '../../utils/downloadAudio';
 
 // Utils
 import { msToTime } from '../../utils';
@@ -266,12 +267,36 @@ const AddToLiked = ({
 const Actions = (props: ComponentProps) => {
   const { song, canEdit, playlist, album, artist, saved, onToggleLike } = props;
   const [t] = useTranslation(['order']);
+  const dispatch = useAppDispatch();
+  const user = useAppSelector((state) => state.auth.user);
+
   return (
     <p
       className='text-right actions tablet-hidden'
-      style={{ flex: 1, display: 'flex', justifyContent: 'center' }}
+      style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}
       onClick={(e) => e.stopPropagation()}
     >
+      <Tooltip title={`Download "${song.name}"`}>
+        <button
+          className='scale'
+          style={{
+            background: 'transparent',
+            border: 'none',
+            padding: 0,
+            cursor: 'pointer',
+            color: '#b3b3b3',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            downloadTrackAudio(song, user, dispatch);
+          }}
+        >
+          <DownloadIcon style={{ height: 16, width: 16 }} />
+        </button>
+      </Tooltip>
       <TrackActionsWrapper
         track={song}
         album={album}
@@ -282,7 +307,7 @@ const Actions = (props: ComponentProps) => {
         onSavedToggle={onToggleLike ? onToggleLike : undefined}
         trigger={['click']}
       >
-        <div style={{ cursor: 'pointer' }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
           <Tooltip title={`${t('More options for')} ${song.name}`}>
             <div>
               <MenuIcon />

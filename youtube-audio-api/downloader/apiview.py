@@ -3,6 +3,11 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.db.models import Count, Q
+from django.http import FileResponse, HttpResponse
+import os
+import io
+import zipfile
+import re
 from .models import MediaFile, YouTubeChannel, Playlist, FavoriteTrack, ListeningHistory, FollowedArtist
 from .serialization import (
     MediaFileSerializer, YouTubeChannelSerializer,
@@ -13,6 +18,11 @@ from .serialization import (
 )
 from .utils import fetch_and_save_media_urls
 from .views import schedule_recurring_tasks_once
+
+def sanitize_filename(name):
+    clean = re.sub(r'[\\/*?:"<>|]', '', str(name or 'audio'))
+    clean = clean.strip()
+    return clean or 'audio'
 
 
 class YouTubeChannelCreateAPIView(generics.CreateAPIView):
@@ -592,3 +602,67 @@ class MediaFileStemAPIView(APIView):
         mode = request.query_params.get('mode', 'vocal_only')
         stem_url = process_audio_stem(media, mode)
         return Response({'url': stem_url, 'mode': mode, 'track_id': pk})
+
+
+class TrackDownloadAPIView(APIView):
+    """Serve direct MP3 audio attachment for authenticated users only."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        try:
+            media = MediaFile.objects.select_related('youtube_channel').get(pk=pk)
+        except MediaFile.DoesNotExist:
+            return Response({'error': 'Track not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not media.audio_file or not media.audio_file.name:
+            return Response({'error': 'Audio file not available for this track'}, status=status.HTTP_404_NOT_FOUND)
+
+        file_path = media.audio_file.path
+        if not os.path.exists(file_path):
+            return Response({'error': 'Audio file does not exist on disk'}, status=status.HTTP_404_NOT_FOUND)
+
+        artist_name = media.youtube_channel.name if media.youtube_channel else ''
+        title_part = media.title or f'track_{media.id}'
+        full_name = f"{artist_name} - {title_part}" if artist_name and not title_part.startswith(artist_name) else title_part
+        filename = f"{sanitize_filename(full_name)}.mp3"
+
+        response = FileResponse(open(file_path, 'rb'), content_type='audio/mpeg')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
+
+class PlaylistDownloadAPIView(APIView):
+    """Package and serve all audio files of a playlist as a single ZIP archive for authenticated users."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        try:
+            playlist = Playlist.objects.prefetch_related('tracks__youtube_channel').get(pk=pk)
+        except Playlist.DoesNotExist:
+            return Response({'error': 'Playlist not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Check privacy if playlist is not public and doesn't belong to requesting user
+        if not playlist.is_public and playlist.user_id != request.user.id:
+            return Response({'error': 'You do not have access to this private playlist'}, status=status.HTTP_403_FORBIDDEN)
+
+        tracks = [t for t in playlist.tracks.all() if t.audio_file and t.audio_file.name and os.path.exists(t.audio_file.path)]
+        if not tracks:
+            return Response({'error': 'No downloadable audio tracks found in this playlist'}, status=status.HTTP_404_NOT_FOUND)
+
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            for idx, track in enumerate(tracks, 1):
+                artist_name = track.youtube_channel.name if track.youtube_channel else ''
+                title_part = track.title or f"Track_{track.id}"
+                full_name = f"{artist_name} - {title_part}" if artist_name and not title_part.startswith(artist_name) else title_part
+                clean_title = sanitize_filename(full_name)
+                arcname = f"{idx:02d} - {clean_title}.mp3"
+                zip_file.write(track.audio_file.path, arcname=arcname)
+
+        zip_buffer.seek(0)
+        zip_filename = f"{sanitize_filename(playlist.name or f'playlist_{playlist.id}')}.zip"
+
+        response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
+        response['Content-Disposition'] = f'attachment; filename="{zip_filename}"'
+        response['Content-Length'] = zip_buffer.getbuffer().nbytes
+        return response
