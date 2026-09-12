@@ -141,41 +141,65 @@ export const MessagesPage: FC = memo(() => {
     return url;
   };
 
-  const sidebarStyle: React.CSSProperties = {
-    width: 280, flexShrink: 0, borderRight: '1px solid rgba(255,255,255,.08)',
-    display: 'flex', flexDirection: 'column', background: '#111',
-  };
-  const mainStyle: React.CSSProperties = {
-    flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0,
-  };
+  const isMobile = typeof window !== 'undefined' ? window.innerWidth < 768 : false;
 
   return (
-    <div style={{ height: '100%', minHeight: '100%', flex: 1, display: 'flex', color: '#fff', background: '#0f0f0f', overflow: 'hidden', borderRadius: '8px', boxSizing: 'border-box' }}>
-
+    <div className='messages-page-wrapper'>
       {/* Left sidebar — conversation list */}
-      <div style={sidebarStyle}>
-        <div style={{ padding: '20px 16px 12px', borderBottom: '1px solid rgba(255,255,255,.06)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 800, margin: 0 }}>Messages</h2>
-            <button
-              onClick={() => navigate('/friends')}
-              style={{ background: 'rgba(16,185,129,.15)', border: '1px solid rgba(16,185,129,.3)', color: '#34d399', borderRadius: '9999px', padding: '5px 10px', fontSize: '11px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-            >
-              <FaUserPlus size={10} /><span>Add</span>
-            </button>
+      <aside className={`messages-sidebar ${activeConvo ? 'mobile-hidden' : ''}`}>
+        <div className='messages-sidebar-header'>
+          <div>
+            <h2 className='messages-sidebar-header__title'>Messages</h2>
+            <p className='messages-sidebar-header__subtitle'>Friends only chat</p>
           </div>
-          <p style={{ fontSize: '12px', color: '#4b5563', margin: 0 }}>Friends only</p>
+          <button
+            type='button'
+            onClick={() => navigate('/friends')}
+            style={{
+              background: 'rgba(16,185,129,.15)',
+              border: '1px solid rgba(16,185,129,.35)',
+              color: '#34d399',
+              borderRadius: '9999px',
+              padding: '6px 12px',
+              fontSize: '11px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              transition: 'all 0.2s',
+            }}
+          >
+            <FaUserPlus size={11} />
+            <span>Find Friends</span>
+          </button>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '8px' }}>
+        <div className='messages-sidebar-list'>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '40px' }}><Spin /></div>
+            <div style={{ textAlign: 'center', padding: '40px' }}>
+              <Spin />
+            </div>
           ) : conversations.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px 20px', color: '#4b5563' }}>
-              <FaUsers size={32} style={{ marginBottom: '12px', display: 'block', margin: '0 auto 12px' }} />
-              <div style={{ fontSize: '13px', marginBottom: '12px' }}>No conversations yet</div>
-              <button onClick={() => navigate('/friends')} style={{ background: '#10b981', color: '#000', border: 'none', borderRadius: '9999px', padding: '8px 16px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
-                Find Friends
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: '#71717a' }}>
+              <FaUsers size={36} style={{ marginBottom: '12px', display: 'block', margin: '0 auto 12px', opacity: 0.6 }} />
+              <div style={{ fontSize: '13.5px', fontWeight: 600, color: '#a1a1aa', marginBottom: '8px' }}>No conversations yet</div>
+              <p style={{ fontSize: '12px', color: '#71717a', marginBottom: '16px' }}>Add friends to start chatting and sharing jam rooms!</p>
+              <button
+                type='button'
+                onClick={() => navigate('/friends')}
+                style={{
+                  background: '#10b981',
+                  color: '#000000',
+                  border: 'none',
+                  borderRadius: '9999px',
+                  padding: '9px 18px',
+                  fontSize: '12.5px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Explore Friends
               </button>
             </div>
           ) : (
@@ -185,31 +209,26 @@ export const MessagesPage: FC = memo(() => {
                 <div
                   key={convo.id}
                   onClick={() => openConversation(convo)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '10px',
-                    padding: '10px 10px', borderRadius: '10px',
-                    background: isActive ? 'rgba(16,185,129,.12)' : 'transparent',
-                    border: isActive ? '1px solid rgba(16,185,129,.3)' : '1px solid transparent',
-                    cursor: 'pointer', marginBottom: '2px', transition: 'all .2s',
-                  }}
+                  className={`conversation-item ${isActive ? 'is-active' : ''}`}
                 >
-                  <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <div className='conversation-item__avatar-wrapper'>
                     <img
-                      src={getAvatarUrl(convo.avatar)} alt=""
+                      src={getAvatarUrl(convo.avatar)}
+                      alt=''
                       onError={(e) => { e.currentTarget.src = DEFAULT_AVATAR; }}
-                      style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }}
+                      className='conversation-item__avatar'
                     />
                     {(convo.unread_count || 0) > 0 && (
-                      <div style={{ position: 'absolute', top: -2, right: -2, width: 16, height: 16, borderRadius: '50%', background: '#10b981', color: '#000', fontSize: '9px', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div className='conversation-item__badge'>
                         {convo.unread_count}
                       </div>
                     )}
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: '13px', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div className='conversation-item__info'>
+                    <div className='conversation-item__name'>
                       {convo.display_name}
                     </div>
-                    <div style={{ fontSize: '11px', color: '#6b7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <div className='conversation-item__preview'>
                       {convo.last_message ? convo.last_message.text : '@' + convo.username}
                     </div>
                   </div>
@@ -218,39 +237,50 @@ export const MessagesPage: FC = memo(() => {
             })
           )}
         </div>
-      </div>
+      </aside>
 
       {/* Right — chat panel */}
-      <div style={mainStyle}>
+      <main className={`messages-main ${!activeConvo ? 'mobile-hidden' : ''}`}>
         {!activeConvo ? (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '16px', color: '#4b5563' }}>
-            <FaCommentDots size={48} />
-            <div style={{ fontSize: '18px', fontWeight: 700 }}>Select a conversation</div>
-            <div style={{ fontSize: '13px' }}>Choose a friend from the left to start chatting</div>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '14px', color: '#71717a', padding: '24px' }}>
+            <FaCommentDots size={48} style={{ opacity: 0.5 }} />
+            <div style={{ fontSize: '18px', fontWeight: 800, color: '#ffffff' }}>Select a conversation</div>
+            <div style={{ fontSize: '13px', color: '#a1a1aa' }}>Choose a friend from the left to start chatting</div>
           </div>
         ) : (
           <>
             {/* Chat header */}
-            <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,.08)', display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(18,18,18,.8)', backdropFilter: 'blur(10px)' }}>
-              <button onClick={() => { setActiveConvo(null); navigate('/messages'); }} style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: 4 }}>
-                <FaArrowLeft />
+            <div className='messages-chat-header'>
+              <button
+                type='button'
+                onClick={() => { setActiveConvo(null); navigate('/messages'); }}
+                className='messages-chat-header__back-btn'
+                aria-label='Back to conversations'
+              >
+                <FaArrowLeft size={13} />
               </button>
               <img
-                src={getAvatarUrl(activeConvo.avatar)} alt=""
+                src={getAvatarUrl(activeConvo.avatar)}
+                alt=''
                 onError={(e) => { e.currentTarget.src = DEFAULT_AVATAR; }}
-                style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }}
+                className='messages-chat-header__avatar'
               />
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '14px' }}>{activeConvo.display_name}</div>
-                <div style={{ fontSize: '11px', color: '#10b981' }}>🔒 Friends only chat</div>
+              <div className='messages-chat-header__info'>
+                <div className='messages-chat-header__name'>{activeConvo.display_name}</div>
+                <div className='messages-chat-header__status'>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
+                  <span>Friends only chat</span>
+                </div>
               </div>
             </div>
 
-            {/* Messages */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {/* Messages Stream */}
+            <div className='messages-stream'>
               {Object.entries(groupedMessages).map(([date, msgs]) => (
                 <div key={date}>
-                  <div style={{ textAlign: 'center', fontSize: '11px', color: '#4b5563', margin: '12px 0 8px', fontWeight: 600 }}>{date}</div>
+                  <div className='date-separator'>
+                    <span>{date}</span>
+                  </div>
                   {msgs.map((msg) => {
                     const isMine = String(msg.sender.id) === String(currentUser?.id);
                     const roomInvite = extractRoomInvite(msg.text);
@@ -273,7 +303,7 @@ export const MessagesPage: FC = memo(() => {
                                 }
                               }}
                               style={{
-                                color: isMine ? '#000' : '#34d399',
+                                color: isMine ? '#000000' : '#34d399',
                                 textDecoration: 'underline',
                                 fontWeight: 700,
                                 wordBreak: 'break-all',
@@ -288,22 +318,20 @@ export const MessagesPage: FC = memo(() => {
                     };
 
                     return (
-                      <div key={msg.id} style={{ display: 'flex', justifyContent: isMine ? 'flex-end' : 'flex-start', marginBottom: '6px' }}>
+                      <div
+                        key={msg.id}
+                        className={`message-row ${isMine ? 'message-row--me' : 'message-row--them'}`}
+                      >
                         {!isMine && (
                           <img
-                            src={getAvatarUrl(msg.sender.avatar)} alt=""
+                            src={getAvatarUrl(msg.sender.avatar)}
+                            alt=''
                             onError={(e) => { e.currentTarget.src = DEFAULT_AVATAR; }}
-                            style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', marginRight: '8px', flexShrink: 0, alignSelf: 'flex-end' }}
+                            className='message-sender-avatar'
                           />
                         )}
                         <div
-                          style={{
-                            maxWidth: '70%', padding: '10px 14px',
-                            borderRadius: isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                            background: isMine ? '#10b981' : '#242424',
-                            color: isMine ? '#000' : '#fff',
-                            fontSize: '14px', lineHeight: 1.4, wordBreak: 'break-word',
-                          }}
+                          className={`message-bubble ${isMine ? 'message-bubble--me' : 'message-bubble--them'}`}
                         >
                           <div style={{ whiteSpace: 'pre-wrap' }}>
                             {renderTextWithLinks(msg.text)}
@@ -316,18 +344,18 @@ export const MessagesPage: FC = memo(() => {
                                 marginTop: '10px',
                                 padding: '12px 14px',
                                 borderRadius: '12px',
-                                background: isMine ? 'rgba(0,0,0,0.18)' : '#171717',
-                                border: isMine ? '1px solid rgba(0,0,0,0.25)' : '1px solid rgba(16,185,129,0.35)',
-                                boxShadow: '0 4px 14px rgba(0,0,0,0.3)',
+                                background: isMine ? 'rgba(0,0,0,0.2)' : '#18181b',
+                                border: isMine ? '1px solid rgba(0,0,0,0.3)' : '1px solid rgba(16,185,129,0.35)',
+                                boxShadow: '0 4px 14px rgba(0,0,0,0.35)',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 gap: '8px',
                               }}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: isMine ? '#000' : '#34d399', fontWeight: 800, fontSize: '12px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: isMine ? '#000000' : '#34d399', fontWeight: 800, fontSize: '12px' }}>
                                   <FaMusic size={12} />
-                                  <span>Jam Room Invite</span>
+                                  <span>Live Jam Invite</span>
                                 </div>
                                 <span
                                   style={{
@@ -335,8 +363,8 @@ export const MessagesPage: FC = memo(() => {
                                     fontWeight: 800,
                                     fontFamily: 'monospace',
                                     letterSpacing: '0.8px',
-                                    background: isMine ? 'rgba(0,0,0,0.15)' : 'rgba(16,185,129,0.15)',
-                                    color: isMine ? '#000' : '#34d399',
+                                    background: isMine ? 'rgba(0,0,0,0.18)' : 'rgba(16,185,129,0.18)',
+                                    color: isMine ? '#000000' : '#34d399',
                                     padding: '2px 8px',
                                     borderRadius: '4px',
                                   }}
@@ -345,11 +373,12 @@ export const MessagesPage: FC = memo(() => {
                                 </span>
                               </div>
 
-                              <div style={{ fontSize: '13px', fontWeight: 700, color: isMine ? '#000' : '#fff' }}>
+                              <div style={{ fontSize: '13px', fontWeight: 700, color: isMine ? '#000000' : '#ffffff' }}>
                                 {roomInvite.roomName}
                               </div>
 
                               <button
+                                type='button'
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   navigate(`/room/${roomInvite.roomCode}`);
@@ -363,8 +392,8 @@ export const MessagesPage: FC = memo(() => {
                                   padding: '8px 14px',
                                   borderRadius: '8px',
                                   border: 'none',
-                                  background: isMine ? '#000' : '#10b981',
-                                  color: isMine ? '#fff' : '#000',
+                                  background: isMine ? '#000000' : '#10b981',
+                                  color: isMine ? '#ffffff' : '#000000',
                                   fontSize: '12px',
                                   fontWeight: 800,
                                   cursor: 'pointer',
@@ -378,7 +407,7 @@ export const MessagesPage: FC = memo(() => {
                             </div>
                           )}
 
-                          <div style={{ fontSize: '10px', color: isMine ? 'rgba(0,0,0,.5)' : '#4b5563', marginTop: '4px', textAlign: 'right' }}>
+                          <div className='message-bubble__time'>
                             {formatTime(msg.created_at)}
                           </div>
                         </div>
@@ -388,35 +417,35 @@ export const MessagesPage: FC = memo(() => {
                 </div>
               ))}
               {messages.length === 0 && (
-                <div style={{ textAlign: 'center', padding: '40px', color: '#4b5563', fontSize: '13px' }}>
+                <div style={{ textAlign: 'center', padding: '40px', color: '#71717a', fontSize: '13px' }}>
                   No messages yet — say hi! 👋
                 </div>
               )}
               <div ref={chatEndRef} />
             </div>
 
-            {/* Input */}
-            <form onSubmit={sendMessage} style={{ padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,.08)', display: 'flex', gap: '10px', alignItems: 'center', background: '#111' }}>
+            {/* Input form */}
+            <form onSubmit={sendMessage} className='message-input-form'>
               <input
                 type="text"
                 value={newMsg}
                 onChange={(e) => setNewMsg(e.target.value)}
                 placeholder={`Message ${activeConvo.display_name}...`}
-                style={{ flex: 1, background: '#1a1a1a', border: '1px solid rgba(255,255,255,.12)', borderRadius: '9999px', padding: '11px 18px', color: '#fff', fontSize: '14px', outline: 'none' }}
               />
               <button
                 type="submit"
                 disabled={!newMsg.trim() || sending}
-                style={{ width: 42, height: 42, borderRadius: '50%', border: 'none', background: newMsg.trim() ? '#10b981' : 'rgba(255,255,255,.08)', color: newMsg.trim() ? '#000' : '#6b7280', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: newMsg.trim() ? 'pointer' : 'not-allowed', transition: 'all .2s' }}
+                aria-label='Send message'
               >
-                {sending ? <Spin size="small" /> : <FaPaperPlane size={16} />}
+                {sending ? <Spin size="small" /> : <FaPaperPlane size={15} />}
               </button>
             </form>
           </>
         )}
-      </div>
+      </main>
     </div>
   );
 });
 
 MessagesPage.displayName = 'MessagesPage';
+

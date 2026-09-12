@@ -93,7 +93,12 @@ export const TrackActionsWrapper: FC<TrackActionsWrapperProps> = memo((props) =>
           onClick: () => {
             if (!handleUserValidation()) return;
             playlistService.addPlaylistItems(p!.id, [track.uri], p?.snapshot_id!).then(() => {
-              dispatch(playlistActions.refreshTracks(playlist!.id));
+              if (playlist?.id) {
+                dispatch(playlistActions.refreshTracks(playlist.id));
+                dispatch(playlistActions.refreshPlaylist(playlist.id));
+              }
+              dispatch(yourLibraryActions.fetchMyPlaylists());
+              dispatch(api.util.invalidateTags([{ type: 'Playlist', id: p.id }, 'MyPlaylists']));
               message.open({
                 type: 'success',
                 content: t('Added to playlist'),
@@ -140,7 +145,7 @@ export const TrackActionsWrapper: FC<TrackActionsWrapperProps> = memo((props) =>
           <AddToLibrary style={{ height: 18, width: 18, marginInlineEnd: 0 }} />
         ),
         onClick: () => {
-          if (!handleUserValidation(true)) return;
+          if (!handleUserValidation()) return;
           if (saved) {
             userService.deleteTracks([track.id!]).then(() => {
               dispatch(likedSongsActions.removeSong({ id: track.id! }));
@@ -217,7 +222,7 @@ export const TrackActionsWrapper: FC<TrackActionsWrapperProps> = memo((props) =>
         key: '3',
         icon: <AddToQueueIcon />,
         onClick: () => {
-          if (!handleUserValidation(true)) return;
+          if (!handleUserValidation()) return;
           return playerService.addToQueue(track.uri).then(() => {
             dispatch(fetchQueue());
             message.open({

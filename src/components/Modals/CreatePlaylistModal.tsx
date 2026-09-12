@@ -9,6 +9,7 @@ import { useAppDispatch, useAppSelector } from '../../store/store';
 import { createPlaylistModalActions } from '../../store/slices/createPlaylistModal';
 import { fetchMyPlaylists } from '../../store/slices/yourLibrary';
 import { uiActions } from '../../store/slices/ui';
+import { api } from '../../store/api';
 
 // Services
 import { playlistService } from '../../services/playlists';
@@ -89,6 +90,7 @@ export const CreatePlaylistModal: FC = memo(() => {
       );
 
       dispatch(fetchMyPlaylists());
+      dispatch(api.util.invalidateTags(['MyPlaylists']));
       handleClose();
 
       if (newPlaylist?.id) {

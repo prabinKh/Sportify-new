@@ -33,11 +33,19 @@ export const PlaylistList: FC<PlaylistListProps> = memo(({ color }) => {
   const canEdit = useAppSelector((state) => state.playlist.canEdit);
   const playlist = useAppSelector((state) => state.playlist.playlist);
 
-  const hasTracks = !!playlist?.tracks?.total;
+  const hasTracks = tracks.length > 0 || !!playlist?.tracks?.total;
   const isSearching = Boolean(search.trim());
 
   const visibleTracks = useMemo(() => {
-    const indexed = tracks.map((song, index) => ({ song, index }));
+    const seen = new Set<string>();
+    const dedupedTracks = tracks.filter((item) => {
+      const id = String(item.track?.id || item.track?.uri);
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+
+    const indexed = dedupedTracks.map((song, index) => ({ song, index }));
     if (!isSearching) return indexed;
 
     const query = search.trim().toLowerCase();

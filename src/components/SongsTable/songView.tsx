@@ -110,45 +110,173 @@ const ClickeableCover = (props: ComponentProps) => {
   );
 };
 
+
+const TitleWithCover = (props: ComponentProps) => {
+  const { song, isList, isCurrent } = props;
+  return (
+    <div
+      className='flex flex-col'
+      style={{
+        flex: 8,
+        minWidth: 0,
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+          minWidth: 0,
+          overflow: 'hidden',
+          gap: 12,
+        }}
+      >
+        <Cover {...props} />
+
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            minWidth: 0,
+            overflow: 'hidden',
+            flex: 1,
+          }}
+        >
+          <div className='flex flex-row items-center' style={{ minWidth: 0, overflow: 'hidden' }}>
+            <p
+              className={`title text-left ${isCurrent ? 'active' : ''}`}
+              style={{
+                margin: 0,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                fontSize: '0.9375rem',
+                fontWeight: 500,
+              }}
+            >
+              <span>{song.name}</span>{' '}
+              {song.explicit && !isList ? <span className='explicit'>E</span> : null}
+            </p>
+          </div>
+
+          {isList ? (
+            <div
+              className='text-left artist'
+              style={{
+                fontSize: '0.8125rem',
+                color: '#b3b3b3',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                marginTop: 2,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+              }}
+            >
+              {song.explicit ? <span className='explicit'>E</span> : null}
+              <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {getArtists(song.artists)}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Title = (props: ComponentProps) => {
   const { song, isList, isCurrent } = props;
 
   return (
-    <>
-      <div className='flex flex-col' style={{ flex: 8 }}>
-        <div style={{ display: 'flex', flexDirection: 'row' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <div className='flex flex-row items-center'>
-              <p className={`title text-left ${isCurrent ? 'active' : ''}`}>
-                <span>{song.name}</span>{' '}
-                {song.explicit && !isList ? <span className='explicit'>E</span> : null}
-              </p>
-            </div>
+    <div
+      className='flex flex-col'
+      style={{
+        flex: 8,
+        minWidth: 0,
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+          minWidth: 0,
+          overflow: 'hidden',
+          gap: 12,
+        }}
+      >
+        <Cover {...props} />
 
-            {isList ? (
-              <p className='text-left artist mobile-hidden'>
-                {song.explicit ? <span className='explicit'>E</span> : null}
-                {getArtists(song.artists)}
-              </p>
-            ) : null}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            minWidth: 0,
+            overflow: 'hidden',
+            flex: 1,
+          }}
+        >
+          <div className='flex flex-row items-center' style={{ minWidth: 0, overflow: 'hidden' }}>
+            <p
+              className={`title text-left ${isCurrent ? 'active' : ''}`}
+              style={{
+                margin: 0,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                fontSize: '0.9375rem',
+                fontWeight: 500,
+              }}
+            >
+              <span>{song.name}</span>{' '}
+              {song.explicit && !isList ? <span className='explicit'>E</span> : null}
+            </p>
           </div>
+
+          {isList ? (
+            <div
+              className='text-left artist'
+              style={{
+                fontSize: '0.8125rem',
+                color: '#b3b3b3',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                marginTop: 2,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+              }}
+            >
+              {song.explicit ? <span className='explicit'>E</span> : null}
+              <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {getArtists(song.artists)}
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
-    </>
+    </div>
   );
 };
 
-const Cover = ({ song, isList }: ComponentProps) => {
+const Cover = ({ song, album, isList }: ComponentProps) => {
   if (!isList) return null;
 
-  const imageUrl = (song?.album?.images || [])[0]?.url;
+  const imageUrl = (song?.album?.images || album?.images || [])[0]?.url;
   if (!imageUrl) return null;
 
   return (
     <img
       alt='song cover'
       src={imageUrl}
-      className='w-10 h-10 mr-4 rounded-md'
+      className='w-10 h-10 rounded-md flex-shrink-0'
       style={{
         width: 40,
         height: 40,
@@ -158,35 +286,6 @@ const Cover = ({ song, isList }: ComponentProps) => {
         display: 'block',
       }}
     />
-  );
-};
-
-const TitleWithCover = (props: ComponentProps) => {
-  const { song, isList, isCurrent } = props;
-  return (
-    <>
-      <div className='flex flex-col' style={{ flex: 8 }}>
-        <div style={{ display: 'flex', flexDirection: 'row' }}>
-          <Cover {...props} />
-
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <div className='flex flex-row items-center'>
-              <p className={`title text-left ${isCurrent ? 'active' : ''}`}>
-                <span>{song.name}</span>{' '}
-                {song.explicit && !isList ? <span className='explicit'>E</span> : null}
-              </p>
-            </div>
-
-            {isList ? (
-              <p className='text-left artist mobile-hidden'>
-                {song.explicit ? <span className='explicit'>E</span> : null}
-                <div>{getArtists(song.artists)}</div>
-              </p>
-            ) : null}
-          </div>
-        </div>
-      </div>
-    </>
   );
 };
 
@@ -271,14 +370,21 @@ const Actions = (props: ComponentProps) => {
   const user = useAppSelector((state) => state.auth.user);
 
   return (
-    <p
-      className='text-right actions tablet-hidden'
-      style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}
+    <div
+      className='text-right actions'
+      style={{
+        flex: '0 0 auto',
+        display: 'flex',
+        justifyContent: 'flex-end',
+        alignItems: 'center',
+        gap: 10,
+        marginLeft: 8,
+      }}
       onClick={(e) => e.stopPropagation()}
     >
       <Tooltip title={`Download "${song.name}"`}>
         <button
-          className='scale'
+          className='scale desktop-only'
           style={{
             background: 'transparent',
             border: 'none',
@@ -307,23 +413,48 @@ const Actions = (props: ComponentProps) => {
         onSavedToggle={onToggleLike ? onToggleLike : undefined}
         trigger={['click']}
       >
-        <div style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+        <div
+          style={{
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '4px 6px',
+            borderRadius: '50%',
+            color: '#b3b3b3',
+          }}
+          className='hover:text-white'
+          onClick={(e) => e.stopPropagation()}
+        >
           <Tooltip title={`${t('More options for')} ${song.name}`}>
-            <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <MenuIcon />
             </div>
           </Tooltip>
         </div>
       </TrackActionsWrapper>
-    </p>
+    </div>
   );
 };
 
 const Time = ({ song }: ComponentProps) => {
   return (
-    <p className='text-right ' style={{ flex: 1, display: 'flex', justifyContent: 'end' }}>
+    <div
+      className='text-right'
+      style={{
+        flex: '0 0 auto',
+        display: 'flex',
+        justifyContent: 'flex-end',
+        alignItems: 'center',
+        color: '#b3b3b3',
+        fontSize: '0.875rem',
+        margin: 0,
+        minWidth: 40,
+        marginLeft: 8,
+      }}
+    >
       {msToTime(song.duration_ms)}
-    </p>
+    </div>
   );
 };
 

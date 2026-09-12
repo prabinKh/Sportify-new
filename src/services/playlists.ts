@@ -47,12 +47,18 @@ const getPlaylistItems = async (
     const tracksRes = await axios.get('/api/tracks/').catch(() => ({ data: [] }));
     const tracks = (tracksRes.data || []).map(formatLocalTrack).filter(Boolean);
     const items = tracks.map((t: any) => ({ track: t, added_at: t.downloaded_at }));
-    return { data: { items, total: items.length } };
+    const offset = _params?.offset || 0;
+    const limit = _params?.limit || 50;
+    const paginatedItems = _params?.offset !== undefined ? items.slice(offset, offset + limit) : items;
+    return { data: { items: paginatedItems, total: items.length } };
   }
   const response = await axios.get(`/api/playlists/${playlistId}/`);
   const tracks = (response.data?.tracks || []).map(formatLocalTrack).filter(Boolean);
   const items = tracks.map((t: any) => ({ track: t, added_at: t.downloaded_at }));
-  return { data: { items, total: items.length } };
+  const offset = _params?.offset || 0;
+  const limit = _params?.limit || 50;
+  const paginatedItems = _params?.offset !== undefined ? items.slice(offset, offset + limit) : items;
+  return { data: { items: paginatedItems, total: items.length } };
 };
 
 const getMyPlaylists = async (_params: any = {}) => {

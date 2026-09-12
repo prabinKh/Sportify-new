@@ -143,11 +143,18 @@ export const getNextTracks = createAsyncThunk<PlaylistItemWithSaved[]>(
   'playlist/getNextTracks',
   async (_params, { getState }) => {
     const { playlist, tracks } = (getState() as RootState).playlist;
+    if (!playlist || tracks.length >= (playlist.tracks?.total || 0)) {
+      return [];
+    }
 
-    const { data } = await playlistService.getPlaylistItems(playlist!.id, {
+    const { data } = await playlistService.getPlaylistItems(playlist.id, {
       offset: tracks.length,
       limit: 50,
     });
+
+    if (!data.items || !data.items.length) {
+      return [];
+    }
 
     const ids = data.items.map((item) => item.track.id);
 
@@ -239,7 +246,13 @@ const playlistSlice = createSlice({
     setPlaylistData(state, action: PayloadAction<PlaylistPageData>) {
       const p = action.payload;
       state.playlist = p.playlist;
-      state.tracks = p.tracks;
+      const seen = new Set<string>();
+      state.tracks = (p.tracks || []).filter((item) => {
+        const id = String(item.track?.id || item.track?.uri);
+        if (!id || seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
       state.following = p.following;
       state.canEdit = p.canEdit;
       state.user = p.user;
@@ -255,7 +268,13 @@ const playlistSlice = createSlice({
     });
     builder.addCase(fetchPlaylist.fulfilled, (state, action) => {
       state.playlist = action.payload[0];
-      state.tracks = action.payload[1];
+      const seen = new Set<string>();
+      state.tracks = (action.payload[1] || []).filter((item) => {
+        const id = String(item.track?.id || item.track?.uri);
+        if (!id || seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
       state.following = action.payload[2];
       state.canEdit = action.payload[3];
       state.user = action.payload[4];
@@ -263,13 +282,33 @@ const playlistSlice = createSlice({
       state.loading = false;
     });
     builder.addCase(refreshTracks.fulfilled, (state, action) => {
-      state.tracks = action.payload;
+      const seen = new Set<string>();
+      state.tracks = (action.payload || []).filter((item) => {
+        const id = String(item.track?.id || item.track?.uri);
+        if (!id || seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
+      if (state.playlist) {
+        state.playlist = {
+          ...state.playlist,
+          tracks: {
+            ...state.playlist.tracks,
+            total: state.tracks.length,
+          },
+        };
+      }
     });
     builder.addCase(refreshPlaylist.fulfilled, (state, action: PayloadAction<Playlist>) => {
       state.playlist = action.payload;
     });
     builder.addCase(getNextTracks.fulfilled, (state, action) => {
-      state.tracks = [...state.tracks, ...action.payload];
+      if (!action.payload || !action.payload.length) return;
+      const existingIds = new Set(state.tracks.map((t) => String(t.track?.id || t.track?.uri)));
+      const newTracks = action.payload.filter(
+        (t) => !existingIds.has(String(t.track?.id || t.track?.uri))
+      );
+      state.tracks = [...state.tracks, ...newTracks];
     });
   },
 });

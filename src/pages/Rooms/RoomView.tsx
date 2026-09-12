@@ -74,8 +74,9 @@ export const RoomView: FC = memo(() => {
   const roomRef = useRef<RoomData | null>(null);
   const isHostRef = useRef(false);
 
-  // Chat state
+  // Chat & Responsive View state
   const [activeTab, setActiveTab] = useState<'chat' | 'members'>('chat');
+  const [mobileTab, setMobileTab] = useState<'player' | 'chat'>('player');
   const [messages, setMessages] = useState<RoomMessageData[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [sendingMsg, setSendingMsg] = useState(false);
@@ -671,21 +672,22 @@ export const RoomView: FC = memo(() => {
 
   const inviteLink = `${window.location.origin}/room/${room.code}`;
 
+  const trackTitle = track?.title || track?.name || 'No Track Selected';
+  const trackArtist = track?.youtube_channel?.name || track?.artists?.[0]?.name || 'Pick a song to start jam';
+  const effectiveDuration =
+    duration > 0
+      ? duration
+      : (track?.duration_seconds || (track?.duration_ms ? track.duration_ms / 1000 : 0));
+  const effectiveCurrentTime = isSeeking
+    ? seekValue
+    : (currentTime > 0 ? currentTime : (room ? calcLivePosition(room) : 0));
+
+  const handleSeekEnd = handleSeekCommit;
+  const handleOpenSongPicker = openSongPicker;
+  const handleTogglePlay = handleHostTogglePlay;
+
   return (
-    <div
-      style={{
-        height: '100%',
-        minHeight: '100%',
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        background: 'linear-gradient(180deg, #0d281a 0%, #121212 280px)',
-        color: '#ffffff',
-        overflow: 'hidden',
-        borderRadius: '8px',
-        boxSizing: 'border-box',
-      }}
-    >
+    <div className='room-view-container'>
       {/* Hidden Audio Element for playback */}
       {trackAudioUrl && (
         <audio
@@ -755,66 +757,34 @@ export const RoomView: FC = memo(() => {
       )}
 
       {/* Top Header Bar */}
-      <div
-        style={{
-          padding: '14px 24px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-          background: 'rgba(18, 18, 18, 0.6)',
-          backdropFilter: 'blur(10px)',
-          flexShrink: 0,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <div className='room-header'>
+        <div className='room-header__left'>
           <button
+            type='button'
             onClick={() => navigate('/rooms')}
-            style={{
-              background: 'rgba(255, 255, 255, 0.08)',
-              border: 'none',
-              borderRadius: '50%',
-              width: '36px',
-              height: '36px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#ffffff',
-              cursor: 'pointer',
-            }}
+            className='room-header__back-btn'
+            aria-label='Back to Jam Rooms'
           >
             <FaArrowLeft size={14} />
           </button>
 
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <h1 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: '#ffffff' }}>
+          <div className='room-header__info'>
+            <div className='room-header__title-row'>
+              <h1 className='room-header__title'>
                 {room.name}
               </h1>
               {/* Room Code Badge */}
               <button
+                type='button'
                 onClick={handleCopyCode}
-                title='Click to copy code'
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  background: 'rgba(16, 185, 129, 0.15)',
-                  border: '1px solid rgba(16, 185, 129, 0.35)',
-                  color: '#34d399',
-                  padding: '3px 10px',
-                  borderRadius: '6px',
-                  fontSize: '12px',
-                  fontWeight: 700,
-                  letterSpacing: '1px',
-                  cursor: 'pointer',
-                }}
+                title='Click to copy room code'
+                className='room-header__code-badge'
               >
                 {copied ? <FaCheck size={11} /> : <FaCopy size={11} />}
                 <span>{room.code}</span>
               </button>
             </div>
-            <span style={{ fontSize: '12px', color: '#a0a0a0' }}>
+            <span className='room-header__meta'>
               Host: <strong style={{ color: '#ffffff' }}>{room.host_name}</strong>
               {room.description && ` • ${room.description}`}
             </span>
@@ -822,30 +792,13 @@ export const RoomView: FC = memo(() => {
         </div>
 
         {/* Right Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div className='room-header__actions'>
           {/* ── INVITE FRIENDS BUTTON ── */}
           <button
+            type='button'
             onClick={() => setInviteOpen(true)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '7px',
-              padding: '8px 16px',
-              borderRadius: '9999px',
-              border: '1px solid rgba(16, 185, 129, 0.5)',
-              background: 'rgba(16, 185, 129, 0.12)',
-              color: '#34d399',
-              fontSize: '12px',
-              fontWeight: 700,
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(16, 185, 129, 0.22)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(16, 185, 129, 0.12)';
-            }}
+            className='room-action-btn room-action-btn--invite'
+            title='Invite Friends'
           >
             <FaUserPlus size={12} />
             <span>Invite Friends</span>
@@ -853,20 +806,10 @@ export const RoomView: FC = memo(() => {
 
           {isHost && (
             <button
+              type='button'
               onClick={handleDeleteRoom}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 16px',
-                borderRadius: '9999px',
-                border: '1px solid rgba(239, 68, 68, 0.4)',
-                background: 'rgba(239, 68, 68, 0.1)',
-                color: '#f87171',
-                fontSize: '12px',
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
+              className='room-action-btn room-action-btn--end'
+              title='End Jam Room'
             >
               <FaTrash size={12} />
               <span>End Room</span>
@@ -874,44 +817,20 @@ export const RoomView: FC = memo(() => {
           )}
 
           <button
+            type='button'
             onClick={handleSyncAudio}
             title='Sync audio with live host timestamp'
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 16px',
-              borderRadius: '9999px',
-              border: '1px solid rgba(16, 185, 129, 0.4)',
-              background: 'rgba(16, 185, 129, 0.15)',
-              color: '#34d399',
-              fontSize: '12px',
-              fontWeight: 700,
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(16, 185, 129, 0.25)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(16, 185, 129, 0.15)'; }}
+            className='room-action-btn room-action-btn--sync'
           >
             <FaRotateRight size={12} />
             <span>Sync Audio</span>
           </button>
 
           <button
+            type='button'
             onClick={handleLeaveRoom}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 16px',
-              borderRadius: '9999px',
-              border: 'none',
-              background: 'rgba(255, 255, 255, 0.1)',
-              color: '#ffffff',
-              fontSize: '12px',
-              fontWeight: 700,
-              cursor: 'pointer',
-            }}
+            className='room-action-btn room-action-btn--leave'
+            title='Leave Room'
           >
             <FaDoorOpen size={13} />
             <span>Leave</span>
@@ -919,28 +838,30 @@ export const RoomView: FC = memo(() => {
         </div>
       </div>
 
-      {/* Main Content Layout: Player Stage | Live Chat */}
-      <div
-        style={{
-          flex: 1,
-          display: 'grid',
-          gridTemplateColumns: '1.2fr 0.8fr',
-          minHeight: 0,
-          overflow: 'hidden',
-        }}
-      >
-        {/* Left: Synced Listening Stage */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '32px',
-            position: 'relative',
-            overflowY: 'auto',
-          }}
+      {/* Mobile View Switcher Tab Bar (Visible on < 1024px) */}
+      <div className='room-mobile-tab-bar'>
+        <button
+          type='button'
+          className={`room-mobile-tab-bar__tab ${mobileTab === 'player' ? 'is-active' : ''}`}
+          onClick={() => setMobileTab('player')}
         >
+          <FaMusic size={13} />
+          <span>Player Stage {room.is_playing ? '●' : ''}</span>
+        </button>
+        <button
+          type='button'
+          className={`room-mobile-tab-bar__tab ${mobileTab === 'chat' ? 'is-active' : ''}`}
+          onClick={() => setMobileTab('chat')}
+        >
+          <FaUsers size={13} />
+          <span>Live Chat ({messages.length})</span>
+        </button>
+      </div>
+
+      {/* Main Content Layout: Player Stage | Live Chat */}
+      <div className='room-body-grid'>
+        {/* Left: Synced Listening Stage */}
+        <div className={`room-player-stage ${mobileTab !== 'player' ? 'mobile-hidden' : ''}`}>
           {/* Status Badge */}
           <div
             style={{
@@ -954,7 +875,7 @@ export const RoomView: FC = memo(() => {
               borderRadius: '9999px',
               fontSize: '13px',
               fontWeight: 700,
-              marginBottom: '28px',
+              marginBottom: '20px',
             }}
           >
             {isHost ? (
@@ -979,14 +900,7 @@ export const RoomView: FC = memo(() => {
           </div>
 
           {/* Vinyl / Album Art */}
-          <div
-            style={{
-              position: 'relative',
-              width: '260px',
-              height: '260px',
-              marginBottom: '24px',
-            }}
-          >
+          <div className='room-vinyl-wrapper'>
             <img
               src={trackArtwork}
               alt=''
@@ -1030,222 +944,192 @@ export const RoomView: FC = memo(() => {
             )}
           </div>
 
-          {/* Track Info */}
-          <div style={{ textAlign: 'center', marginBottom: '24px', maxWidth: '450px' }}>
+          {/* Track Metadata */}
+          <div style={{ textAlign: 'center', marginBottom: '20px', maxWidth: '420px', width: '100%', padding: '0 12px' }}>
             <h2
               style={{
-                fontSize: '22px',
+                fontSize: '20px',
                 fontWeight: 800,
-                color: '#ffffff',
-                margin: '0 0 6px 0',
+                margin: '0 0 4px',
+                whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
+                color: '#ffffff',
               }}
             >
-              {track?.title || track?.name || 'No Track Selected'}
+              {trackTitle}
             </h2>
-            <span style={{ fontSize: '14px', color: '#a0a0a0' }}>
-              {track?.youtube_channel?.name || track?.artists?.[0]?.name || 'Pick a song to start jam'}
-            </span>
+            <p
+              style={{
+                fontSize: '14px',
+                color: '#a0a0a0',
+                margin: 0,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {trackArtist}
+            </p>
           </div>
 
-          {/* Scrubber Progress Bar */}
-          {(() => {
-            const displayDuration =
-              duration > 0
-                ? duration
-                : (track?.duration_seconds || (track?.duration_ms ? track.duration_ms / 1000 : 0));
-            const displayCurrentTime = isSeeking
-              ? seekValue
-              : (currentTime > 0 ? currentTime : (room ? calcLivePosition(room) : 0));
-
-            return (
-              <div style={{ width: '100%', maxWidth: '500px', marginBottom: '20px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ fontSize: '12px', color: '#a0a0a0', width: '38px', textAlign: 'right' }}>
-                    {formatTime(displayCurrentTime)}
-                  </span>
-                  <input
-                    type='range'
-                    min={0}
-                    max={displayDuration || 100}
-                    step={0.5}
-                    disabled={!isHost}
-                    value={Math.min(displayCurrentTime, displayDuration || 100)}
-                    onChange={handleSeekChange}
-                    onMouseUp={handleSeekCommit}
-                    onTouchEnd={handleSeekCommit}
-                    style={{
-                      flex: 1,
-                      accentColor: '#10b981',
-                      cursor: isHost ? 'pointer' : 'default',
-                    }}
-                  />
-                  <span style={{ fontSize: '12px', color: '#a0a0a0', width: '38px' }}>
-                    {formatTime(displayDuration)}
-                  </span>
-                </div>
-              </div>
-            );
-          })()}
+          {/* Timeline & Progress Bar */}
+          <div style={{ width: '100%', maxWidth: '440px', marginBottom: '20px', padding: '0 12px' }}>
+            <div style={{ position: 'relative', width: '100%', height: '24px', display: 'flex', alignItems: 'center' }}>
+              <input
+                type='range'
+                min={0}
+                max={effectiveDuration || 100}
+                value={effectiveCurrentTime}
+                disabled={!isHost}
+                onMouseDown={() => {
+                  if (isHost) {
+                    setIsSeeking(true);
+                    setSeekValue(effectiveCurrentTime);
+                  }
+                }}
+                onTouchStart={() => {
+                  if (isHost) {
+                    setIsSeeking(true);
+                    setSeekValue(effectiveCurrentTime);
+                  }
+                }}
+                onChange={(e) => {
+                  if (isHost) {
+                    setSeekValue(parseFloat(e.target.value));
+                  }
+                }}
+                onMouseUp={handleSeekEnd}
+                onTouchEnd={handleSeekEnd}
+                style={{
+                  width: '100%',
+                  cursor: isHost ? 'pointer' : 'default',
+                  accentColor: '#10b981',
+                  height: '5px',
+                  borderRadius: '3px',
+                }}
+              />
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontSize: '11px',
+                color: '#808080',
+                marginTop: '4px',
+              }}
+            >
+              <span>{formatTime(effectiveCurrentTime)}</span>
+              <span>{formatTime(effectiveDuration)}</span>
+            </div>
+          </div>
 
           {/* Controls Bar */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
             {/* Host Song Picker Button */}
             {isHost && (
               <button
-                onClick={openSongPicker}
+                type='button'
+                onClick={handleOpenSongPicker}
+                title='Choose or Search a Track from Spotify Library'
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '8px',
-                  padding: '10px 20px',
+                  gap: '7px',
+                  padding: '10px 18px',
                   borderRadius: '9999px',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  color: '#ffffff',
+                  border: '1px solid rgba(16, 185, 129, 0.5)',
+                  background: 'rgba(16, 185, 129, 0.15)',
+                  color: '#34d399',
                   fontSize: '13px',
                   fontWeight: 700,
                   cursor: 'pointer',
                   transition: 'all 0.2s',
+                  boxShadow: '0 2px 10px rgba(16, 185, 129, 0.2)',
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.18)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'; }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(16, 185, 129, 0.25)';
+                  e.currentTarget.style.transform = 'scale(1.03)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(16, 185, 129, 0.15)';
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
               >
-                <FaMusic size={14} />
-                <span>Change Track</span>
+                <FaMagnifyingGlass size={13} />
+                <span>Select / Change Track</span>
               </button>
             )}
 
-            {/* Play/Pause Button */}
+            {/* Play/Pause Button (Host controlled) */}
             {isHost ? (
               <button
-                onClick={handleHostTogglePlay}
+                type='button'
+                onClick={handleTogglePlay}
                 style={{
                   width: '56px',
                   height: '56px',
                   borderRadius: '50%',
-                  border: 'none',
                   background: '#10b981',
-                  color: '#000000',
+                  border: 'none',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '20px',
+                  color: '#000000',
                   cursor: 'pointer',
-                  boxShadow: '0 8px 20px rgba(16, 185, 129, 0.4)',
-                  transition: 'transform 0.2s',
+                  boxShadow: '0 8px 24px rgba(16, 185, 129, 0.4)',
+                  transition: 'transform 0.15s ease',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.08)')}
-                onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.08)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
               >
-                {room.is_playing ? <FaPause /> : <FaPlay style={{ marginLeft: '3px' }} />}
+                {room.is_playing ? <FaPause size={20} /> : <FaPlay size={20} style={{ marginLeft: '3px' }} />}
               </button>
             ) : (
-              /* Listener view: read-only status, no playback control */
               <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '12px',
+                  gap: '8px',
+                  padding: '8px 16px',
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  borderRadius: '9999px',
+                  fontSize: '12px',
+                  color: '#a0a0a0',
                 }}
               >
-                <div
-                  style={{
-                    padding: '12px 20px',
-                    borderRadius: '9999px',
-                    background: room.is_playing
-                      ? 'rgba(16, 185, 129, 0.1)'
-                      : 'rgba(255, 255, 255, 0.06)',
-                    border: room.is_playing
-                      ? '1px solid rgba(16, 185, 129, 0.3)'
-                      : '1px solid rgba(255,255,255,0.1)',
-                    color: room.is_playing ? '#34d399' : '#a0a0a0',
-                    fontSize: '13px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    fontWeight: 600,
-                  }}
-                >
-                  {room.is_playing ? (
-                    <>
-                      {/* Animated bars to show active sync */}
-                      <span style={{ display: 'flex', gap: '2px', alignItems: 'flex-end', height: '16px' }}>
-                        {[1, 2, 3].map((i) => (
-                          <span
-                            key={i}
-                            style={{
-                              width: '3px',
-                              borderRadius: '2px',
-                              background: '#10b981',
-                              animation: `bounce${i} 0.7s ease-in-out infinite alternate`,
-                              height: `${6 + i * 3}px`,
-                              display: 'inline-block',
-                            }}
-                          />
-                        ))}
-                      </span>
-                      <span>Synced with Host</span>
-                    </>
-                  ) : (
-                    <>
-                      <FaPause size={13} />
-                      <span>Host Paused — Waiting…</span>
-                    </>
-                  )}
-                </div>
-
-                <button
-                  onClick={handleSyncAudio}
-                  title='Click to re-sync audio with host if any error'
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '10px 18px',
-                    borderRadius: '9999px',
-                    border: '1px solid rgba(16, 185, 129, 0.4)',
-                    background: 'rgba(16, 185, 129, 0.15)',
-                    color: '#34d399',
-                    fontSize: '13px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(16, 185, 129, 0.25)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(16, 185, 129, 0.15)'; }}
-                >
-                  <FaRotateRight size={13} />
-                  <span>Sync Audio</span>
-                </button>
-
-                <span style={{ fontSize: '11px', color: '#6b7280' }}>
-                  🔒 Host controls playback
-                </span>
+                {room.is_playing ? (
+                  <>
+                    <FaPlay size={10} color='#10b981' />
+                    <span>Broadcasting Live</span>
+                  </>
+                ) : (
+                  <>
+                    <FaPause size={10} color='#f59e0b' />
+                    <span>Host Paused</span>
+                  </>
+                )}
               </div>
             )}
 
             {/* Volume Control */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <button
+                type='button'
                 onClick={() => {
-                  if (audioRef.current) {
-                    const nextMuted = !muted;
-                    setMuted(nextMuted);
-                    audioRef.current.muted = nextMuted;
-                  }
+                  const nextMuted = !muted;
+                  setMuted(nextMuted);
+                  if (audioRef.current) audioRef.current.muted = nextMuted;
                 }}
-                style={{ background: 'transparent', border: 'none', color: '#a0a0a0', cursor: 'pointer' }}
+                style={{ background: 'none', border: 'none', color: '#a0a0a0', cursor: 'pointer', padding: 0 }}
               >
-                {muted || volume === 0 ? <FaVolumeXmark size={16} /> : <FaVolumeHigh size={16} />}
+                {muted || volume === 0 ? <FaVolumeXmark size={15} /> : <FaVolumeHigh size={15} />}
               </button>
               <input
                 type='range'
                 min={0}
                 max={1}
-                step={0.05}
+                step={0.01}
                 value={muted ? 0 : volume}
                 onChange={(e) => {
                   const val = parseFloat(e.target.value);
@@ -1264,9 +1148,10 @@ export const RoomView: FC = memo(() => {
           {/* Inline "Invite a friend" hint */}
           {!isHost && (
             <button
+              type='button'
               onClick={() => setInviteOpen(true)}
               style={{
-                marginTop: '24px',
+                marginTop: '16px',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '8px',
@@ -1286,15 +1171,7 @@ export const RoomView: FC = memo(() => {
         </div>
 
         {/* Right: Live Chat & Members Panel */}
-        <div
-          style={{
-            borderLeft: '1px solid rgba(255, 255, 255, 0.08)',
-            background: '#151515',
-            display: 'flex',
-            flexDirection: 'column',
-            minHeight: 0,
-          }}
-        >
+        <div className={`room-chat-panel ${mobileTab !== 'chat' ? 'mobile-hidden' : ''}`}>
           {/* Tabs: Chat vs Members */}
           <div
             style={{
@@ -1305,6 +1182,7 @@ export const RoomView: FC = memo(() => {
             }}
           >
             <button
+              type='button'
               onClick={() => setActiveTab('chat')}
               style={{
                 flex: 1,
@@ -1321,6 +1199,7 @@ export const RoomView: FC = memo(() => {
               💬 Live Chat ({messages.length})
             </button>
             <button
+              type='button'
               onClick={() => setActiveTab('members')}
               style={{
                 flex: 1,

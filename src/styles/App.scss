@@ -19,6 +19,8 @@
 @use './Artist.scss';
 @use './Devices.scss';
 @use './AuthPage.scss';
+@use './SocialMessages.scss';
+@use './RoomView.scss';
 
 .ant-drawer-body {
   background-color: $background-color;
