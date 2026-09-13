@@ -332,10 +332,16 @@ export const RoomView: FC = memo(() => {
         audio.currentTime = targetPos;
       } catch {}
     }
+    
     const playPromise = audio.play();
     if (playPromise !== undefined) {
       playPromise
         .then(() => {
+          // Re-enforce time after play initializes buffer successfully
+          // This fixes the bug where browsers ignore currentTime setting before playback starts
+          if (targetPos > 0 && Math.abs(audio.currentTime - targetPos) > 1.0) {
+            try { audio.currentTime = targetPos; } catch {}
+          }
           audioUnlockedRef.current = true;
           setAudioUnlocked(true);
           autoplayBlockedRef.current = false;

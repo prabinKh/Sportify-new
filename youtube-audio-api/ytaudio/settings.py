@@ -31,6 +31,7 @@ ALLOWED_HOSTS = ['youtube-audio-api-production-06e5.up.railway.app', 'localhost'
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -46,6 +47,7 @@ INSTALLED_APPS = [
     'accounts',
     'social',
     'rooms',
+    'channels',
 ]
 
 MIDDLEWARE = [
@@ -82,6 +84,13 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'ytaudio.wsgi.application'
+ASGI_APPLICATION = 'ytaudio.asgi.application'
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+    }
+}
 
 
 # Database

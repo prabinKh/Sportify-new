@@ -18,3 +18,5 @@ Pillow==12.3.0
 typing_extensions==4.13.1
 urllib3==2.3.0
 yt-dlp==2026.8.19
+channels
+daphne

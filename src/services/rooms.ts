@@ -1,4 +1,4 @@
-import axios from '../axios';
+import axios, { API_BASE_URL } from '../axios';
 
 export interface RoomMemberData {
   id: number;
@@ -133,3 +133,76 @@ export const roomService = {
   sendChatMessage,
   leaveRoom,
 };
+
+export class JamSyncSocket {
+  ws: WebSocket | null = null;
+  code: string;
+  onEvent: (event: any) => void;
+  offset: number = 0;
+  pingInterval: any = null;
+  reconnectTimeout: any = null;
+  isConnecting: boolean = false;
+
+  constructor(code: string, onEvent: (event: any) => void) {
+    this.code = code;
+    this.onEvent = onEvent;
+    this.connect();
+  }
+
+  connect() {
+    if (this.isConnecting) return;
+    this.isConnecting = true;
+    
+    let wsBase = API_BASE_URL.replace(/^http/, 'ws');
+    const wsUrl = `${wsBase}/ws/room/${this.code}/`;
+    
+    this.ws = new WebSocket(wsUrl);
+
+    this.ws.onopen = () => {
+      this.isConnecting = false;
+      // Start clock calibration loop
+      this.pingInterval = setInterval(() => {
+        if (this.ws?.readyState === WebSocket.OPEN) {
+          this.ws.send(JSON.stringify({ type: 'ping', client_time: Date.now() }));
+        }
+      }, 5000);
+      
+      // Initial ping
+      this.ws.send(JSON.stringify({ type: 'ping', client_time: Date.now() }));
+    };
+
+    this.ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'pong') {
+          const now = Date.now();
+          const latency = (now - data.client_time) / 2;
+          this.offset = data.server_time - (data.client_time + latency);
+        } else {
+          this.onEvent(data);
+        }
+      } catch (e) {}
+    };
+
+    this.ws.onclose = () => {
+      this.isConnecting = false;
+      this.cleanup();
+      // Auto-reconnect gracefully
+      this.reconnectTimeout = setTimeout(() => this.connect(), 2000);
+    };
+  }
+
+  cleanup() {
+    if (this.pingInterval) clearInterval(this.pingInterval);
+  }
+
+  disconnect() {
+    this.cleanup();
+    if (this.reconnectTimeout) clearTimeout(this.reconnectTimeout);
+    if (this.ws) {
+      this.ws.onclose = null;
+      this.ws.close();
+    }
+  }
+}
+

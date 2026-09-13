@@ -5,6 +5,8 @@ from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
 from .models import Room, RoomMember, RoomMessage
 from .serializers import (
@@ -185,8 +187,9 @@ class RoomPlaybackSyncAPIView(APIView):
                     pass
             room.position_updated_at = now
         elif action == 'pause':
-            # Save exact position at pause time
-            if room.is_playing:
+            # Position is already set from position_raw at the top of this block if provided by frontend.
+            # Only add elapsed time if frontend didn't provide a precise position_raw.
+            if room.is_playing and position_raw is None:
                 elapsed = (now - room.position_updated_at).total_seconds()
                 room.position_seconds = max(0.0, room.position_seconds + elapsed)
             room.is_playing = False
@@ -202,6 +205,19 @@ class RoomPlaybackSyncAPIView(APIView):
         room.save()
 
         state_serializer = RoomStateSerializer(room, context={'request': request})
+        
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f'room_{room.code}',
+            {
+                'type': 'playback_event',
+                'payload': {
+                    'action': action,
+                    'state': state_serializer.data
+                }
+            }
+        )
+
         return Response(state_serializer.data, status=status.HTTP_200_OK)
 
 
