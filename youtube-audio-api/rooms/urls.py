@@ -7,9 +7,11 @@ from .views import (
     RoomStateSyncAPIView,
     RoomChatAPIView,
     LeaveRoomAPIView,
+    get_server_time,
 )
 
 urlpatterns = [
+    path('time/', get_server_time, name='server_time'),
     path('', RoomListCreateAPIView.as_view(), name='room_list_create'),
     path('join/', JoinRoomAPIView.as_view(), name='room_join'),
     path('<str:code_or_id>/', RoomDetailAPIView.as_view(), name='room_detail'),

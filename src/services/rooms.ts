@@ -36,6 +36,7 @@ export interface RoomData {
   calculated_position: number;
   position_updated_at: string;
   server_timestamp: number;
+  start_at_server_time?: number;
   is_public: boolean;
   member_count: number;
   members: RoomMemberData[];
@@ -52,6 +53,7 @@ export interface RoomStateData {
   calculated_position: number;
   position_updated_at: string;
   server_timestamp: number;
+  start_at_server_time?: number;
   current_track: any | null;
   member_count: number;
 }
@@ -121,6 +123,40 @@ const leaveRoom = async (codeOrId: string) => {
   return response.data;
 };
 
+const getServerTime = async () => {
+  const response = await axios.get<{ server_time: number; server_time_ms: number }>('/api/rooms/time/');
+  return response.data;
+};
+
+/**
+ * High-precision 3-sample NTP clock synchronization.
+ * Calculates the exact clock offset (ms) between the client machine and Django backend.
+ */
+const syncServerClock = async (samples = 3): Promise<number> => {
+  let bestOffset = 0;
+  let minRtt = Infinity;
+
+  for (let i = 0; i < samples; i++) {
+    const t0 = Date.now();
+    try {
+      const res = await getServerTime();
+      const t1 = Date.now();
+      const rtt = t1 - t0;
+      const serverMs = res.server_time_ms || res.server_time * 1000;
+      const offset = serverMs - (t0 + rtt / 2);
+
+      if (rtt < minRtt) {
+        minRtt = rtt;
+        bestOffset = offset;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return bestOffset;
+};
+
 export const roomService = {
   getRooms,
   createRoom,
@@ -132,6 +168,8 @@ export const roomService = {
   getRoomChat,
   sendChatMessage,
   leaveRoom,
+  getServerTime,
+  syncServerClock,
 };
 
 export class JamSyncSocket {
@@ -156,7 +194,12 @@ export class JamSyncSocket {
     let wsBase = API_BASE_URL.replace(/^http/, 'ws');
     const wsUrl = `${wsBase}/ws/room/${this.code}/`;
     
-    this.ws = new WebSocket(wsUrl);
+    try {
+      this.ws = new WebSocket(wsUrl);
+    } catch {
+      this.isConnecting = false;
+      return;
+    }
 
     this.ws.onopen = () => {
       this.isConnecting = false;
@@ -190,6 +233,14 @@ export class JamSyncSocket {
       // Auto-reconnect gracefully
       this.reconnectTimeout = setTimeout(() => this.connect(), 2000);
     };
+
+    this.ws.onerror = () => {
+      this.isConnecting = false;
+    };
+  }
+
+  getSyncedNowMs(): number {
+    return Date.now() + this.offset;
   }
 
   cleanup() {
@@ -201,6 +252,7 @@ export class JamSyncSocket {
     if (this.reconnectTimeout) clearTimeout(this.reconnectTimeout);
     if (this.ws) {
       this.ws.onclose = null;
+      this.ws.onerror = null;
       this.ws.close();
     }
   }

@@ -1,8 +1,10 @@
+import time
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.db.models import Q
 from rest_framework import generics, status
 from rest_framework.views import APIView
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from channels.layers import get_channel_layer
@@ -138,6 +140,17 @@ class RoomDetailAPIView(generics.RetrieveDestroyAPIView):
         return Response({'message': 'Room deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
 
 
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_server_time(request):
+    """High-precision NTP clock synchronization endpoint."""
+    now_sec = time.time()
+    return Response({
+        'server_time': now_sec,
+        'server_time_ms': int(now_sec * 1000)
+    }, status=status.HTTP_200_OK)
+
+
 class RoomPlaybackSyncAPIView(APIView):
     """
     Host playback control API:
@@ -162,6 +175,8 @@ class RoomPlaybackSyncAPIView(APIView):
         track_id = request.data.get('track_id')
 
         now = timezone.now()
+        current_server_sec = time.time()
+        start_at_server_time = None
 
         if track_id:
             try:
@@ -179,6 +194,8 @@ class RoomPlaybackSyncAPIView(APIView):
         if action == 'play':
             room.is_playing = True
             room.position_updated_at = now
+            # Schedule 500ms in the future so both host & listener pre-buffer and trigger audio simultaneously
+            start_at_server_time = current_server_sec + 0.50
         elif action == 'heartbeat':
             if position_raw is not None:
                 try:
@@ -187,8 +204,6 @@ class RoomPlaybackSyncAPIView(APIView):
                     pass
             room.position_updated_at = now
         elif action == 'pause':
-            # Position is already set from position_raw at the top of this block if provided by frontend.
-            # Only add elapsed time if frontend didn't provide a precise position_raw.
             if room.is_playing and position_raw is None:
                 elapsed = (now - room.position_updated_at).total_seconds()
                 room.position_seconds = max(0.0, room.position_seconds + elapsed)
@@ -196,15 +211,22 @@ class RoomPlaybackSyncAPIView(APIView):
             room.position_updated_at = now
         elif action == 'seek':
             room.position_updated_at = now
+            if room.is_playing:
+                start_at_server_time = current_server_sec + 0.35
         elif action == 'change_track':
             room.position_seconds = 0.0
             room.position_updated_at = now
             if request.data.get('auto_play', True):
                 room.is_playing = True
+                # Allow 600ms for pre-buffering new audio file
+                start_at_server_time = current_server_sec + 0.60
 
         room.save()
 
-        state_serializer = RoomStateSerializer(room, context={'request': request})
+        state_serializer = RoomStateSerializer(
+            room,
+            context={'request': request, 'start_at_server_time': start_at_server_time}
+        )
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(

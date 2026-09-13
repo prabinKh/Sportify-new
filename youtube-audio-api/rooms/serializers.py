@@ -71,6 +71,7 @@ class RoomSerializer(serializers.ModelSerializer):
     current_track = LocalTrackSerializer(read_only=True)
     calculated_position = serializers.FloatField(read_only=True)
     server_timestamp = serializers.SerializerMethodField()
+    start_at_server_time = serializers.SerializerMethodField()
     member_count = serializers.SerializerMethodField()
     members = serializers.SerializerMethodField()
     recent_messages = serializers.SerializerMethodField()
@@ -82,14 +83,14 @@ class RoomSerializer(serializers.ModelSerializer):
             'host_id', 'host_name', 'host_avatar',
             'current_track', 'is_playing', 'position_seconds',
             'calculated_position', 'position_updated_at',
-            'server_timestamp', 'is_public',
+            'server_timestamp', 'start_at_server_time', 'is_public',
             'member_count', 'members', 'recent_messages',
             'created_at', 'updated_at',
         ]
         read_only_fields = [
             'id', 'code', 'host_id', 'host_name', 'host_avatar',
-            'calculated_position', 'server_timestamp', 'member_count',
-            'members', 'recent_messages', 'created_at', 'updated_at',
+            'calculated_position', 'server_timestamp', 'start_at_server_time',
+            'member_count', 'members', 'recent_messages', 'created_at', 'updated_at',
         ]
 
     def get_host_name(self, obj):
@@ -103,6 +104,9 @@ class RoomSerializer(serializers.ModelSerializer):
 
     def get_server_timestamp(self, obj):
         return time.time()
+
+    def get_start_at_server_time(self, obj):
+        return self.context.get('start_at_server_time', None)
 
     def get_member_count(self, obj):
         return obj.members.count()
@@ -124,6 +128,7 @@ class RoomStateSerializer(serializers.ModelSerializer):
     current_track = LocalTrackSerializer(read_only=True)
     calculated_position = serializers.FloatField(read_only=True)
     server_timestamp = serializers.SerializerMethodField()
+    start_at_server_time = serializers.SerializerMethodField()
     member_count = serializers.SerializerMethodField()
 
     class Meta:
@@ -131,11 +136,14 @@ class RoomStateSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'code', 'is_playing', 'position_seconds',
             'calculated_position', 'position_updated_at',
-            'server_timestamp', 'current_track', 'member_count',
+            'server_timestamp', 'start_at_server_time', 'current_track', 'member_count',
         ]
 
     def get_server_timestamp(self, obj):
         return time.time()
+
+    def get_start_at_server_time(self, obj):
+        return self.context.get('start_at_server_time', None)
 
     def get_member_count(self, obj):
         return obj.members.count()

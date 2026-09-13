@@ -30,7 +30,14 @@ import '../../styles/RoomView.scss';
 // Redux & Services
 import { useAppDispatch, useAppSelector } from '../../store/store';
 import { uiActions } from '../../store/slices/ui';
-import { roomService, RoomData, RoomMessageData, RoomMemberData } from '../../services/rooms';
+import {
+  roomService,
+  RoomData,
+  RoomMessageData,
+  RoomMemberData,
+  RoomStateData,
+  JamSyncSocket,
+} from '../../services/rooms';
 import { socialService, UserSummary } from '../../services/social';
 import { playerService } from '../../services/player';
 import axios from '../../axios';
@@ -97,10 +104,26 @@ export const RoomView: FC = memo(() => {
 
   const isHost = Boolean(user && room && String(user.id) === String(room.host_id));
   const lastHardSeekTimeRef = useRef<number>(0);
+  const clockOffsetRef = useRef<number>(0);
+  const scheduledPlayTimerRef = useRef<any>(null);
 
   // Keep refs in sync so async intervals always have fresh values
   useEffect(() => { roomRef.current = room; }, [room]);
   useEffect(() => { isHostRef.current = isHost; }, [isHost]);
+
+  /**
+   * Returns current high-precision server time in seconds, using NTP-synchronized clock offset.
+   */
+  const getSyncedNowSec = useCallback(() => {
+    return (Date.now() + clockOffsetRef.current) / 1000;
+  }, []);
+
+  // Initial NTP Clock Synchronization on mount
+  useEffect(() => {
+    roomService.syncServerClock(3).then((offset) => {
+      clockOffsetRef.current = offset;
+    }).catch(() => {});
+  }, []);
 
   /**
    * Calculates live playback position using the server-computed position or server_timestamp.
@@ -112,18 +135,32 @@ export const RoomView: FC = memo(() => {
     calculated_position?: number;
     position_updated_at?: string;
     server_timestamp?: number;
+    start_at_server_time?: number;
   } | null): number => {
     if (!state) return 0;
     if (!state.is_playing) return Math.max(0, state.position_seconds || 0);
 
-    if (typeof state.calculated_position === 'number' && state.calculated_position >= 0) {
-      return state.calculated_position;
+    const syncedNow = (Date.now() + clockOffsetRef.current) / 1000;
+
+    // If future scheduled playback hasn't triggered yet
+    if (state.start_at_server_time && state.start_at_server_time > syncedNow) {
+      return Math.max(0, state.position_seconds || 0);
     }
 
-    if (state.position_updated_at && state.server_timestamp) {
-      const serverUpdatedSec = new Date(state.position_updated_at).getTime() / 1000;
-      const elapsed = Math.max(0, state.server_timestamp - serverUpdatedSec);
+    // If playback started from a scheduled start_at_server_time
+    if (state.start_at_server_time && state.start_at_server_time <= syncedNow) {
+      const elapsed = Math.max(0, syncedNow - state.start_at_server_time);
       return Math.max(0, (state.position_seconds || 0) + elapsed);
+    }
+
+    if (state.position_updated_at) {
+      const serverUpdatedSec = new Date(state.position_updated_at).getTime() / 1000;
+      const elapsed = Math.max(0, syncedNow - serverUpdatedSec);
+      return Math.max(0, (state.position_seconds || 0) + elapsed);
+    }
+
+    if (typeof state.calculated_position === 'number' && state.calculated_position >= 0) {
+      return state.calculated_position;
     }
 
     return Math.max(0, state.position_seconds || 0);
@@ -456,115 +493,151 @@ export const RoomView: FC = memo(() => {
     }).catch(() => {});
   }, []);
 
-  // Periodic State Sync & Smooth Drift Correction (Polls every 1500ms)
+  /**
+   * Unified real-time playback state applier for both WebSocket events and fallback polling.
+   * Handles pre-buffering, scheduled future playback (zero-delay), and smooth phase-lock micro-sync.
+   */
+  const handleApplySyncState = useCallback((state: RoomStateData, action?: string) => {
+    if (!state) return;
+
+    // Track change detection by ID
+    const currentTrackId = state.current_track ? String(state.current_track.id) : null;
+    const rawNewTrackUrl =
+      state.current_track?.audio_file ||
+      state.current_track?.audio_url ||
+      state.current_track?.media_url ||
+      state.current_track?.url ||
+      null;
+    const newTrackUrl = rawNewTrackUrl ? normalizeMediaUrl(rawNewTrackUrl) : null;
+
+    const trackChanged = Boolean(
+      currentTrackId && loadedTrackIdRef.current && currentTrackId !== loadedTrackIdRef.current
+    );
+
+    const syncedNow = getSyncedNowSec();
+    const livePos = calcLivePosition(state);
+
+    setRoom((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        is_playing: state.is_playing,
+        position_seconds: state.position_seconds,
+        calculated_position: livePos,
+        position_updated_at: state.position_updated_at,
+        server_timestamp: state.server_timestamp,
+        start_at_server_time: state.start_at_server_time,
+        current_track: state.current_track,
+        member_count: state.member_count,
+      };
+    });
+
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    // 1) Handle track source updates & pre-buffering
+    if (newTrackUrl && (trackChanged || !audio.src || audio.src === '' || audio.src === window.location.href)) {
+      loadedTrackIdRef.current = currentTrackId;
+      loadedTrackUrlRef.current = newTrackUrl;
+      if (audio.src !== newTrackUrl) {
+        audio.src = newTrackUrl;
+        audio.preload = 'auto';
+        audio.load();
+      }
+    }
+
+    // Host manages their own audio events directly (unless action was from external)
+    if (isHostRef.current) return;
+
+    // Clear any previous pending scheduled playback timer
+    if (scheduledPlayTimerRef.current) {
+      clearTimeout(scheduledPlayTimerRef.current);
+      scheduledPlayTimerRef.current = null;
+    }
+
+    // 2) Seamless Playback & Synchronized Future Start
+    if (state.is_playing) {
+      // If a future start time is scheduled, wait for the exact millisecond!
+      if (state.start_at_server_time && state.start_at_server_time > syncedNow + 0.02) {
+        const delayMs = Math.max(0, (state.start_at_server_time - syncedNow) * 1000);
+        const startPos = Math.max(0, state.position_seconds || 0);
+
+        // Pre-seek while paused so decoding is already finished in RAM
+        try { audio.currentTime = startPos; } catch {}
+
+        scheduledPlayTimerRef.current = setTimeout(() => {
+          if (roomRef.current?.is_playing && audioRef.current) {
+            attemptPlayListener(audioRef.current, startPos);
+          }
+        }, delayMs);
+        return;
+      }
+
+      if (audio.paused) {
+        if (!autoplayBlockedRef.current) {
+          attemptPlayListener(audio, livePos);
+        }
+      } else {
+        // Continuous Phase-Lock Alignment (sub-second drift correction)
+        const drift = livePos - audio.currentTime;
+        const absDrift = Math.abs(drift);
+        const nowMs = performance.now();
+
+        // Hard seek ONLY on large desync (> 4 seconds) with 6s cooldown
+        if (absDrift > 4.0 && nowMs - lastHardSeekTimeRef.current > 6000) {
+          lastHardSeekTimeRef.current = nowMs;
+          audio.currentTime = livePos;
+          audio.playbackRate = 1.0;
+        } else if (absDrift > 0.06) {
+          // Dynamic micro-rate adjustment (inaudible pitch adjustment, smooth convergence in <2s)
+          if (drift > 0) {
+            audio.playbackRate = 1.025;
+          } else {
+            audio.playbackRate = 0.975;
+          }
+        } else {
+          audio.playbackRate = 1.0;
+        }
+      }
+    } else {
+      // Paused by host
+      audio.playbackRate = 1.0;
+      if (!audio.paused) {
+        audio.pause();
+        try {
+          audio.currentTime = state.position_seconds || 0;
+        } catch {}
+      }
+    }
+  }, [calcLivePosition, getSyncedNowSec, attemptPlayListener]);
+
+  // Real-time WebSocket connection for instant, zero-delay event dispatch
+  useEffect(() => {
+    if (!code) return;
+    const socket = new JamSyncSocket(code.toUpperCase(), (event) => {
+      if (event.state) {
+        handleApplySyncState(event.state, event.action);
+      }
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [code, handleApplySyncState]);
+
+  // Fallback Polling Interval (every 1500ms) to ensure sync even if WebSocket reconnects
   useEffect(() => {
     if (!code || isSeeking) return;
 
     const syncInterval = setInterval(async () => {
       try {
         const state = await roomService.getRoomState(code);
-
-        // Track change detection by ID
-        const currentTrackId = state.current_track ? String(state.current_track.id) : null;
-        const rawNewTrackUrl =
-          state.current_track?.audio_file ||
-          state.current_track?.audio_url ||
-          state.current_track?.media_url ||
-          state.current_track?.url ||
-          null;
-        const newTrackUrl = rawNewTrackUrl ? normalizeMediaUrl(rawNewTrackUrl) : null;
-
-        const trackChanged = Boolean(
-          currentTrackId && loadedTrackIdRef.current && currentTrackId !== loadedTrackIdRef.current
-        );
-
-        const livePos = calcLivePosition(state);
-
-        setRoom((prev) => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            is_playing: state.is_playing,
-            position_seconds: state.position_seconds,
-            calculated_position: livePos,
-            position_updated_at: state.position_updated_at,
-            server_timestamp: state.server_timestamp,
-            current_track: state.current_track,
-            member_count: state.member_count,
-          };
-        });
-
-        // LISTENERS ONLY: Continuous smooth audio playback without restarting or stuttering
-        if (!isHostRef.current && audioRef.current) {
-          const audio = audioRef.current;
-
-          // 1) Track changed by host → change source
-          if (trackChanged && newTrackUrl) {
-            loadedTrackIdRef.current = currentTrackId;
-            loadedTrackUrlRef.current = newTrackUrl;
-            if (audio.src !== newTrackUrl) {
-              audio.src = newTrackUrl;
-              audio.load();
-            }
-            if (state.is_playing) {
-              attemptPlayListener(audio, livePos);
-            }
-            return;
-          }
-
-          // If audio has no src set yet, set it
-          if (newTrackUrl && (!audio.src || audio.src === '' || audio.src === window.location.href)) {
-            loadedTrackIdRef.current = currentTrackId;
-            loadedTrackUrlRef.current = newTrackUrl;
-            audio.src = newTrackUrl;
-            audio.load();
-          }
-
-          // 2) Seamless Playback & Smooth Drift Alignment
-          if (state.is_playing) {
-            if (audio.paused) {
-              // Only attempt play when paused - never restart if already playing!
-              if (!autoplayBlockedRef.current) {
-                attemptPlayListener(audio, livePos);
-              }
-            } else {
-              // Audio is ALREADY playing continuously -> never reset currentTime on small drift!
-              const drift = livePos - audio.currentTime;
-              const absDrift = Math.abs(drift);
-              const nowMs = performance.now();
-
-              // Hard seek ONLY on severe desync (> 8 seconds) with 10s cooldown
-              if (absDrift > 8.0 && nowMs - lastHardSeekTimeRef.current > 10000) {
-                lastHardSeekTimeRef.current = nowMs;
-                audio.currentTime = livePos;
-                audio.playbackRate = 1.0;
-              } else if (absDrift > 0.4) {
-                // Gentle playback rate adjustment (imperceptible pitch shift, no clicks or reloads)
-                if (drift > 0) {
-                  audio.playbackRate = 1.02;
-                } else {
-                  audio.playbackRate = 0.98;
-                }
-              } else {
-                audio.playbackRate = 1.0;
-              }
-            }
-          } else {
-            // Room paused by host
-            audio.playbackRate = 1.0;
-            if (!audio.paused) {
-              audio.pause();
-              audio.currentTime = state.position_seconds || 0;
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('Sync poll error:', err);
-      }
+        handleApplySyncState(state);
+      } catch {}
     }, 1500);
 
     return () => clearInterval(syncInterval);
-  }, [code, isSeeking, calcLivePosition, attemptPlayListener]);
+  }, [code, isSeeking, handleApplySyncState]);
 
   // Real-time timestamp ticker for listeners and joiners (updates UI smoothly every 250ms)
   useEffect(() => {
@@ -662,25 +735,15 @@ export const RoomView: FC = memo(() => {
     }
   };
 
-  // Host Playback Actions
+  // Host Playback Actions (Synchronized via scheduled start_at_server_time)
   const handleHostTogglePlay = async () => {
     if (!isHost || !room) return;
     const nextPlay = !room.is_playing;
     const pos = audioRef.current ? audioRef.current.currentTime : (room.position_seconds || 0);
 
     const audio = audioRef.current;
-    if (audio) {
-      if (nextPlay) {
-        audio.muted = false;
-        if (audio.volume === 0) audio.volume = volume || 0.8;
-        if (trackAudioUrl && audio.src !== trackAudioUrl) {
-          audio.src = trackAudioUrl;
-          audio.load();
-        }
-        audio.play().catch((e) => console.warn('Host play error:', e));
-      } else {
-        audio.pause();
-      }
+    if (audio && !nextPlay) {
+      audio.pause();
     }
 
     try {
@@ -688,7 +751,32 @@ export const RoomView: FC = memo(() => {
         action: nextPlay ? 'play' : 'pause',
         position_seconds: pos,
       });
+
       setRoom((prev) => (prev ? { ...prev, is_playing: updated.is_playing } : null));
+
+      if (audio && nextPlay) {
+        audio.muted = false;
+        if (audio.volume === 0) audio.volume = volume || 0.8;
+        if (trackAudioUrl && audio.src !== trackAudioUrl) {
+          audio.src = trackAudioUrl;
+          audio.preload = 'auto';
+          audio.load();
+        }
+
+        const syncedNow = getSyncedNowSec();
+        if (updated.start_at_server_time && updated.start_at_server_time > syncedNow + 0.02) {
+          const delayMs = (updated.start_at_server_time - syncedNow) * 1000;
+          try { audio.currentTime = pos; } catch {}
+          if (scheduledPlayTimerRef.current) clearTimeout(scheduledPlayTimerRef.current);
+          scheduledPlayTimerRef.current = setTimeout(() => {
+            if (audioRef.current && roomRef.current?.is_playing) {
+              audioRef.current.play().catch(() => {});
+            }
+          }, delayMs);
+        } else {
+          audio.play().catch((e) => console.warn('Host play error:', e));
+        }
+      }
     } catch (err) {
       console.error('Playback sync error:', err);
     }
@@ -707,10 +795,24 @@ export const RoomView: FC = memo(() => {
     setIsSeeking(false);
 
     try {
-      await roomService.syncPlayback(room.code, {
+      const updated = await roomService.syncPlayback(room.code, {
         action: 'seek',
         position_seconds: seekValue,
       });
+
+      const audio = audioRef.current;
+      if (audio && room.is_playing) {
+        const syncedNow = getSyncedNowSec();
+        if (updated.start_at_server_time && updated.start_at_server_time > syncedNow + 0.02) {
+          const delayMs = (updated.start_at_server_time - syncedNow) * 1000;
+          if (scheduledPlayTimerRef.current) clearTimeout(scheduledPlayTimerRef.current);
+          scheduledPlayTimerRef.current = setTimeout(() => {
+            if (audioRef.current && roomRef.current?.is_playing) {
+              audioRef.current.play().catch(() => {});
+            }
+          }, delayMs);
+        }
+      }
     } catch (err) {
       console.error('Seek sync error:', err);
     }
@@ -745,14 +847,28 @@ export const RoomView: FC = memo(() => {
       const normalizedUrl = normalizeMediaUrl(rawUrl);
 
       if (normalizedUrl && audioRef.current) {
+        const audio = audioRef.current;
         loadedTrackIdRef.current = String(track.id);
         loadedTrackUrlRef.current = normalizedUrl;
-        audioRef.current.src = normalizedUrl;
-        audioRef.current.load();
-        audioRef.current.currentTime = 0;
-        audioRef.current.muted = false;
-        audioRef.current.volume = volume || 0.8;
-        audioRef.current.play().catch((e) => console.warn('Host play error:', e));
+        audio.src = normalizedUrl;
+        audio.preload = 'auto';
+        audio.load();
+        audio.currentTime = 0;
+        audio.muted = false;
+        audio.volume = volume || 0.8;
+
+        const syncedNow = getSyncedNowSec();
+        if (updated.start_at_server_time && updated.start_at_server_time > syncedNow + 0.02) {
+          const delayMs = (updated.start_at_server_time - syncedNow) * 1000;
+          if (scheduledPlayTimerRef.current) clearTimeout(scheduledPlayTimerRef.current);
+          scheduledPlayTimerRef.current = setTimeout(() => {
+            if (audioRef.current && roomRef.current?.is_playing) {
+              audioRef.current.play().catch((e) => console.warn('Host play error:', e));
+            }
+          }, delayMs);
+        } else {
+          audio.play().catch((e) => console.warn('Host play error:', e));
+        }
       }
 
       message.success(`Now playing: ${track.title || track.name}`);
