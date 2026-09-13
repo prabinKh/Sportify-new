@@ -4,6 +4,7 @@ import { Spin } from 'antd';
 import { FaPaperPlane, FaArrowLeft, FaUserPlus, FaUsers, FaCommentDots, FaMusic, FaPlay } from 'react-icons/fa6';
 import { useAppSelector } from '../../store/store';
 import { socialService, UserSummary, DirectMessage } from '../../services/social';
+import { normalizeMediaUrl } from '../../utils';
 
 const formatTime = (iso: string) => {
   const d = new Date(iso);
@@ -136,9 +137,7 @@ export const MessagesPage: FC = memo(() => {
 
   const DEFAULT_AVATAR = 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png';
   const getAvatarUrl = (url?: string) => {
-    if (!url) return DEFAULT_AVATAR;
-    if (url.startsWith('/media/')) return `http://127.0.0.1:8000${url}`;
-    return url;
+    return normalizeMediaUrl(url, DEFAULT_AVATAR);
   };
 
   const isMobile = typeof window !== 'undefined' ? window.innerWidth < 768 : false;

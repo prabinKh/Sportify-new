@@ -19,6 +19,7 @@ import { useAppDispatch, useAppSelector } from '../../store/store';
 import { uiActions } from '../../store/slices/ui';
 import { roomService, RoomData } from '../../services/rooms';
 import { CreateRoomModal } from '../../components/Modals/CreateRoomModal';
+import { normalizeMediaUrl } from '../../utils';
 
 export const RoomsPage: FC = memo(() => {
   const dispatch = useAppDispatch();
@@ -455,7 +456,7 @@ export const RoomsPage: FC = memo(() => {
                       }}
                     >
                       <img
-                        src={room.host_avatar?.startsWith('/media/') ? `http://127.0.0.1:8000${room.host_avatar}` : (room.host_avatar || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png')}
+                        src={normalizeMediaUrl(room.host_avatar, 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png')}
                         alt={room.host_name}
                         onError={(e) => { e.currentTarget.src = 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'; }}
                         style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }}

@@ -3,7 +3,11 @@ import { getRefreshToken } from './utils/spotify/login';
 import { getFromLocalStorageWithExpiry } from './utils/localstorage';
 import { cacheGet, cacheSet } from './utils/cache';
 
-const path = 'http://127.0.0.1:8000' as const;
+export const API_BASE_URL =
+  (import.meta.env.VITE_API_BASE_URL as string)?.replace(/\/+$/, '') ||
+  'https://b5szs4k9-8000.inc1.devtunnels.ms';
+
+const path = API_BASE_URL;
 
 const access_token = getFromLocalStorageWithExpiry('access_token') as string;
 

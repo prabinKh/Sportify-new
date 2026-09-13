@@ -20,12 +20,34 @@ export const formatEpisodeDuration = (ms: number) => {
 
   return `${minutes} min ${seconds} sec`;
 };
+export const normalizeMediaUrl = (url?: string, defaultFallback = ''): string => {
+  if (!url) return defaultFallback;
+  const baseUrl =
+    (import.meta.env.VITE_API_BASE_URL as string)?.replace(/\/+$/, '') ||
+    'https://b5szs4k9-8000.inc1.devtunnels.ms';
+
+  if (url.startsWith('/')) {
+    return `${baseUrl}${url}`;
+  }
+  if (url.includes('localhost:8000') || url.includes('127.0.0.1:8000')) {
+    return url.replace(/https?:\/\/(localhost|127\.0\.0\.1):8000/, baseUrl);
+  }
+  return url;
+};
+
 export const formatLocalTrack = (track: any): any => {
   if (!track) return null;
   const trackId = String(track.id || track.pk || '1');
   const artistId = String(track.artist_id || track.youtube_channel?.id || track.artists?.[0]?.id || '1');
   const artistName = track.artist_name || track.youtube_channel?.name || track.artists?.[0]?.name || 'YouTube Artist';
-  const artwork = track.thumbnail || track.artist_picture || track.album?.images?.[0]?.url || 'https://community.spotify.com/t5/image/serverpage/image-id/25294i28328C78821614C4';
+  
+  const rawArtwork = track.thumbnail || track.artist_picture || track.album?.images?.[0]?.url;
+  const artwork = rawArtwork
+    ? normalizeMediaUrl(rawArtwork)
+    : 'https://community.spotify.com/t5/image/serverpage/image-id/25294i28328C78821614C4';
+  
+  const rawAudio = track.audio_file || track.audio_url || track.url || '';
+  const audioFile = normalizeMediaUrl(rawAudio);
 
   return {
     id: trackId,
@@ -64,34 +86,41 @@ export const formatLocalTrack = (track: any): any => {
         },
       ],
     },
-    audio_file: track.audio_file || track.audio_url || track.url || '',
+    audio_file: audioFile,
     saved: track.saved ?? (track.is_favorite || false),
     downloaded_at: track.downloaded_at || track.created_at || new Date().toISOString(),
   };
 };
 
-export const formatLocalArtist = (artist: any): any => ({
-  id: String(artist.id),
-  name: artist.name,
-  type: 'artist',
-  uri: `spotify:artist:${artist.id}`,
-  images: artist.profile_picture
-    ? [{ url: artist.profile_picture, height: 300, width: 300 }]
-    : artist.audio_files?.[0]?.thumbnail
-    ? [{ url: artist.audio_files[0].thumbnail, height: 300, width: 300 }]
-    : [{ url: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png', height: 300, width: 300 }],
-  followers: { total: artist.audio_count || 0 },
-  genres: ['YouTube Audio'],
-});
+export const formatLocalArtist = (artist: any): any => {
+  const profilePic = artist.profile_picture ? normalizeMediaUrl(artist.profile_picture) : null;
+  const thumb = artist.audio_files?.[0]?.thumbnail ? normalizeMediaUrl(artist.audio_files[0].thumbnail) : null;
+
+  return {
+    id: String(artist.id),
+    name: artist.name,
+    type: 'artist',
+    uri: `spotify:artist:${artist.id}`,
+    images: profilePic
+      ? [{ url: profilePic, height: 300, width: 300 }]
+      : thumb
+      ? [{ url: thumb, height: 300, width: 300 }]
+      : [{ url: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png', height: 300, width: 300 }],
+    followers: { total: artist.audio_count || 0 },
+    genres: ['YouTube Audio'],
+  };
+};
 
 export const formatLocalPlaylist = (playlist: any): any => {
   if (!playlist) return null;
   const plId = String(playlist.id);
-  const artwork =
+  const rawArtwork =
     playlist.tracks?.[0]?.thumbnail ||
     playlist.tracks?.[0]?.album?.images?.[0]?.url ||
-    playlist.images?.[0]?.url ||
-    'https://community.spotify.com/t5/image/serverpage/image-id/25294i28328C78821614C4';
+    playlist.images?.[0]?.url;
+  const artwork = rawArtwork
+    ? normalizeMediaUrl(rawArtwork)
+    : 'https://community.spotify.com/t5/image/serverpage/image-id/25294i28328C78821614C4';
 
   const isPublic = playlist.is_public !== undefined ? playlist.is_public : (playlist.public !== undefined ? playlist.public : true);
   const isOwn = !playlist.channel_id;
@@ -120,4 +149,5 @@ export const formatLocalPlaylist = (playlist: any): any => {
     is_public: isPublic,
   };
 };
+
 

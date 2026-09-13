@@ -7,8 +7,8 @@ import {
   FaHeart,
 } from 'react-icons/fa6';
 import { useAppDispatch, useAppSelector } from '../../store/store';
-import { uiActions } from '../../store/slices/ui';
 import { socialService, UserSummary, FriendRequest } from '../../services/social';
+import { normalizeMediaUrl } from '../../utils';
 
 type Tab = 'search' | 'requests' | 'friends';
 
@@ -104,9 +104,7 @@ export const FriendsPage: FC = memo(() => {
 
   const DEFAULT_AVATAR = 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png';
   const getAvatarUrl = (url?: string) => {
-    if (!url) return DEFAULT_AVATAR;
-    if (url.startsWith('/media/')) return `http://127.0.0.1:8000${url}`;
-    return url;
+    return normalizeMediaUrl(url, DEFAULT_AVATAR);
   };
 
   const renderUserCard = (u: UserSummary) => (

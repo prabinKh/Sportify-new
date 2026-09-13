@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-w_!==+-_sdrs74ym0+!%l6$zu5h=wsdkt0$l6_h9%jt_61ahw6
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['youtube-audio-api-production-06e5.up.railway.app', 'localhost', '127.0.0.1', 'testserver']
+ALLOWED_HOSTS = ['youtube-audio-api-production-06e5.up.railway.app', 'localhost', '127.0.0.1', 'testserver', '.devtunnels.ms', '*']
 
 
 # Application definition
@@ -182,4 +182,6 @@ CSRF_TRUSTED_ORIGINS = [
     'http://localhost:3000',
     'http://127.0.0.1:5173',
     'http://localhost:5173',
+    'https://*.devtunnels.ms',
+    'http://*.devtunnels.ms',
 ]

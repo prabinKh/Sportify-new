@@ -1,4 +1,5 @@
 import { memo, useEffect, useState, type FC, type ReactElement } from 'react';
+import { useLocation } from 'react-router-dom';
 
 // Components
 import { Col, Row } from 'antd';
@@ -31,6 +32,9 @@ export const AppLayout: FC<{ children: ReactElement }> = memo((props) => {
   const libraryCollapsed = useAppSelector(getLibraryCollapsed);
   const hasState = useAppSelector((state) => !!state.spotify.state);
   const activeOnOtherDevice = useAppSelector(isActiveOnOtherDevice);
+
+  const location = useLocation();
+  const isRoomPage = location.pathname.startsWith('/room/');
 
   const [isTablet, setIsTablet] = useState(false);
 
@@ -93,10 +97,12 @@ export const AppLayout: FC<{ children: ReactElement }> = memo((props) => {
             overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
-            height: `calc(100vh - ${
-              activeOnOtherDevice ? '141' : !user && isMobile ? '0' : isMobile ? '120' : '120'
-            }px)`,
-            marginBottom: isMobile ? '60px' : '0', // Add margin bottom for mobile nav
+            height: isRoomPage
+              ? '100vh'
+              : `calc(100vh - ${
+                  activeOnOtherDevice ? '141' : !user && isMobile ? '0' : isMobile ? '120' : '120'
+                }px)`,
+            marginBottom: isRoomPage ? '0' : isMobile ? '60px' : '0', // Add margin bottom for mobile nav
           }}
         >
           <Col span={24} style={{ flex: '0 0 auto' }}>
@@ -157,9 +163,9 @@ export const AppLayout: FC<{ children: ReactElement }> = memo((props) => {
         </Row>
       </div>
 
-      <MobileBottomNav />
+      {!isRoomPage && <MobileBottomNav />}
 
-      {<footer>{user ? <PlayingBar /> : <LoginFooter />}</footer>}
+      {!isRoomPage && <footer>{user ? <PlayingBar /> : <LoginFooter />}</footer>}
     </>
   );
 });

@@ -20,15 +20,21 @@ import {
   FaQrcode,
   FaDoorOpen,
   FaRotateRight,
+  FaHeadphones,
+  FaComments,
 } from 'react-icons/fa6';
+
+// Styles
+import '../../styles/RoomView.scss';
 
 // Redux & Services
 import { useAppDispatch, useAppSelector } from '../../store/store';
 import { uiActions } from '../../store/slices/ui';
 import { roomService, RoomData, RoomMessageData, RoomMemberData } from '../../services/rooms';
 import { socialService, UserSummary } from '../../services/social';
+import { playerService } from '../../services/player';
 import axios from '../../axios';
-import { formatLocalTrack } from '../../utils';
+import { formatLocalTrack, normalizeMediaUrl } from '../../utils';
 
 const formatTime = (secs: number) => {
   if (isNaN(secs) || secs < 0) return '0:00';
@@ -68,8 +74,9 @@ export const RoomView: FC = memo(() => {
   const [muted, setMuted] = useState(false);
   const [isSeeking, setIsSeeking] = useState(false);
   const [seekValue, setSeekValue] = useState(0);
-  // Track the currently loaded audio src to detect track changes
+  // Track the currently loaded audio src and id to detect track changes
   const loadedTrackUrlRef = useRef<string | null>(null);
+  const loadedTrackIdRef = useRef<string | null>(null);
   // Always-fresh room ref for use inside async callbacks (avoids stale closures)
   const roomRef = useRef<RoomData | null>(null);
   const isHostRef = useRef(false);
@@ -89,23 +96,38 @@ export const RoomView: FC = memo(() => {
   const [loadingTracks, setLoadingTracks] = useState(false);
 
   const isHost = Boolean(user && room && String(user.id) === String(room.host_id));
+  const lastHardSeekTimeRef = useRef<number>(0);
 
   // Keep refs in sync so async intervals always have fresh values
   useEffect(() => { roomRef.current = room; }, [room]);
   useEffect(() => { isHostRef.current = isHost; }, [isHost]);
 
   /**
-   * Calculate the live playback position accounting for wall-clock drift since
-   * the server last updated position. This ensures new joiners land at the
-   * correct timestamp even if the state snapshot is a few seconds old.
+   * Calculates live playback position using the server-computed position or server_timestamp.
+   * Completely immune to client clock skew or timezone offsets across different devices.
    */
-  const calcLivePosition = (state: { is_playing: boolean; position_seconds: number; position_updated_at: string; calculated_position?: number }): number => {
-    if (!state.is_playing) return state.position_seconds;
-    const serverUpdatedAt = new Date(state.position_updated_at).getTime() / 1000;
-    const nowSec = Date.now() / 1000;
-    const elapsed = Math.max(0, nowSec - serverUpdatedAt);
-    return state.position_seconds + elapsed;
-  };
+  const calcLivePosition = useCallback((state?: {
+    is_playing: boolean;
+    position_seconds: number;
+    calculated_position?: number;
+    position_updated_at?: string;
+    server_timestamp?: number;
+  } | null): number => {
+    if (!state) return 0;
+    if (!state.is_playing) return Math.max(0, state.position_seconds || 0);
+
+    if (typeof state.calculated_position === 'number' && state.calculated_position >= 0) {
+      return state.calculated_position;
+    }
+
+    if (state.position_updated_at && state.server_timestamp) {
+      const serverUpdatedSec = new Date(state.position_updated_at).getTime() / 1000;
+      const elapsed = Math.max(0, state.server_timestamp - serverUpdatedSec);
+      return Math.max(0, (state.position_seconds || 0) + elapsed);
+    }
+
+    return Math.max(0, state.position_seconds || 0);
+  }, []);
 
   // Check if ?invite=true was passed in the URL (e.g. upon room creation)
   useEffect(() => {
@@ -117,6 +139,17 @@ export const RoomView: FC = memo(() => {
     }
   }, [searchParams, setSearchParams]);
 
+  // Pause global player on enter so previous songs don't clash or loop, and clean up room audio on leave
+  useEffect(() => {
+    playerService.pausePlayback().catch(() => {});
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      }
+    };
+  }, []);
+
   // Initial room load — automatically joins logged-in users so they become active members
   const loadRoom = useCallback(async () => {
     if (!code) return;
@@ -124,12 +157,30 @@ export const RoomView: FC = memo(() => {
       if (user && user.id !== 'guest') {
         const joined = await roomService.joinRoom(code.toUpperCase());
         setRoom(joined);
+        if (joined.current_track) {
+          loadedTrackIdRef.current = String(joined.current_track.id);
+          const rawUrl =
+            joined.current_track.audio_file ||
+            joined.current_track.audio_url ||
+            joined.current_track.media_url ||
+            joined.current_track.url;
+          loadedTrackUrlRef.current = normalizeMediaUrl(rawUrl);
+        }
         if (joined.recent_messages) {
           setMessages(joined.recent_messages);
         }
       } else {
         const data = await roomService.getRoom(code);
         setRoom(data);
+        if (data.current_track) {
+          loadedTrackIdRef.current = String(data.current_track.id);
+          const rawUrl =
+            data.current_track.audio_file ||
+            data.current_track.audio_url ||
+            data.current_track.media_url ||
+            data.current_track.url;
+          loadedTrackUrlRef.current = normalizeMediaUrl(rawUrl);
+        }
         if (data.recent_messages) {
           setMessages(data.recent_messages);
         }
@@ -139,6 +190,15 @@ export const RoomView: FC = memo(() => {
       try {
         const data = await roomService.getRoom(code);
         setRoom(data);
+        if (data.current_track) {
+          loadedTrackIdRef.current = String(data.current_track.id);
+          const rawUrl =
+            data.current_track.audio_file ||
+            data.current_track.audio_url ||
+            data.current_track.media_url ||
+            data.current_track.url;
+          loadedTrackUrlRef.current = normalizeMediaUrl(rawUrl);
+        }
         if (data.recent_messages) setMessages(data.recent_messages);
       } catch {
         message.error('Failed to load or join jam room.');
@@ -234,23 +294,139 @@ export const RoomView: FC = memo(() => {
     }
   };
 
-  // Autoplay Protection State
+  // Autoplay Protection & Playback State
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const autoplayBlockedRef = useRef(false);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
+  const audioUnlockedRef = useRef(false);
 
-  const attemptPlayListener = useCallback((audio: HTMLAudioElement, targetPos: number) => {
-    if (autoplayBlockedRef.current) return;
-    audio.currentTime = targetPos;
-    audio.play().then(() => {
+  // Hosts have audio unlocked by default
+  useEffect(() => {
+    if (isHost) {
+      setAudioUnlocked(true);
+      audioUnlockedRef.current = true;
+    }
+  }, [isHost]);
+
+  const attemptPlayListener = useCallback((audio: HTMLAudioElement, targetPos: number, isDirectUserGesture = false) => {
+    if (!audio) return;
+    if (!audioUnlockedRef.current && !isDirectUserGesture) return;
+    if (autoplayBlockedRef.current && !isDirectUserGesture) return;
+
+    if (isDirectUserGesture) {
+      audioUnlockedRef.current = true;
+      setAudioUnlocked(true);
       autoplayBlockedRef.current = false;
       setAutoplayBlocked(false);
-    }).catch((err: any) => {
-      if (err.name === 'NotAllowedError' || err.name === 'NotSupportedError') {
-        autoplayBlockedRef.current = true;
-        setAutoplayBlocked(true);
+    }
+
+    audio.muted = false;
+    if (audio.volume === 0) {
+      audio.volume = volume || 0.8;
+    }
+
+    // Only set currentTime if audio is strictly paused (never interrupt playing audio)
+    if (audio.paused && targetPos > 0 && Math.abs(audio.currentTime - targetPos) > 1.0) {
+      try {
+        audio.currentTime = targetPos;
+      } catch {}
+    }
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          audioUnlockedRef.current = true;
+          setAudioUnlocked(true);
+          autoplayBlockedRef.current = false;
+          setAutoplayBlocked(false);
+          setIsAudioPlaying(true);
+        })
+        .catch((err: any) => {
+          if (err.name === 'NotAllowedError' || err.name === 'NotSupportedError') {
+            autoplayBlockedRef.current = true;
+            setAutoplayBlocked(true);
+            setIsAudioPlaying(false);
+          }
+        });
+    }
+  }, [volume]);
+
+  // Primary Join & Enable Sound Action (Guaranteed User Gesture to unlock HTML5 Audio for the tab)
+  const handleJoinAndEnableSound = useCallback(async () => {
+    audioUnlockedRef.current = true;
+    setAudioUnlocked(true);
+    autoplayBlockedRef.current = false;
+    setAutoplayBlocked(false);
+
+    const audio = audioRef.current;
+    if (audio) {
+      audio.muted = false;
+      audio.volume = volume || 0.8;
+
+      const currentRoom = roomRef.current;
+      if (currentRoom?.is_playing) {
+        const livePos = calcLivePosition(currentRoom);
+        if (livePos > 0) {
+          try { audio.currentTime = livePos; } catch {}
+        }
+        await audio.play().catch(() => {});
+        setIsAudioPlaying(true);
+        message.success('Audio enabled! You are in live sync 🎧');
+      } else {
+        // Prime audio element for future programmatic play
+        try {
+          const p = audio.play();
+          if (p !== undefined) {
+            p.then(() => {
+              if (!roomRef.current?.is_playing) {
+                audio.pause();
+              }
+            }).catch(() => {});
+          }
+        } catch {}
+        message.success('Audio unlocked! Ready to listen 🎧');
       }
-    });
-  }, []);
+    }
+  }, [volume, calcLivePosition]);
+
+  // Global user gesture unlocker: any tap, click, or keypress unlocks audio playback
+  useEffect(() => {
+    const unlockAudio = () => {
+      audioUnlockedRef.current = true;
+      setAudioUnlocked(true);
+      autoplayBlockedRef.current = false;
+      setAutoplayBlocked(false);
+
+      const audio = audioRef.current;
+      if (!audio) return;
+      
+      audio.muted = false;
+      if (audio.volume === 0) {
+        audio.volume = volume || 0.8;
+      }
+
+      const currentRoom = roomRef.current;
+      if (!isHostRef.current && currentRoom?.is_playing && audio.paused) {
+        const livePos = calcLivePosition(currentRoom);
+        attemptPlayListener(audio, livePos, true);
+      }
+    };
+
+    window.addEventListener('click', unlockAudio, { passive: true });
+    window.addEventListener('touchstart', unlockAudio, { passive: true });
+    window.addEventListener('pointerdown', unlockAudio, { passive: true });
+    window.addEventListener('keydown', unlockAudio, { passive: true });
+
+    return () => {
+      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener('touchstart', unlockAudio);
+      window.removeEventListener('pointerdown', unlockAudio);
+      window.removeEventListener('keydown', unlockAudio);
+    };
+  }, [volume, calcLivePosition, attemptPlayListener]);
+
+  const handleStartListening = handleJoinAndEnableSound;
 
   // Host Heartbeat: Periodically send host's true currentTime to backend so listeners stay in tight sync
   useEffect(() => {
@@ -274,21 +450,29 @@ export const RoomView: FC = memo(() => {
     }).catch(() => {});
   }, []);
 
-  // Periodic State Sync & Tight Drift Correction (Polls every 800ms)
+  // Periodic State Sync & Smooth Drift Correction (Polls every 1500ms)
   useEffect(() => {
     if (!code || isSeeking) return;
 
     const syncInterval = setInterval(async () => {
       try {
-        const pingStart = performance.now();
         const state = await roomService.getRoomState(code);
-        const rttSec = (performance.now() - pingStart) / 1000 / 2; // latency estimate
 
-        // Detect track change by comparing audio_file URL
-        const newTrackUrl = state.current_track?.audio_file || state.current_track?.media_url || null;
+        // Track change detection by ID
+        const currentTrackId = state.current_track ? String(state.current_track.id) : null;
+        const rawNewTrackUrl =
+          state.current_track?.audio_file ||
+          state.current_track?.audio_url ||
+          state.current_track?.media_url ||
+          state.current_track?.url ||
+          null;
+        const newTrackUrl = rawNewTrackUrl ? normalizeMediaUrl(rawNewTrackUrl) : null;
 
-        // Compute live position NOW (accounts for time elapsed since server response + latency)
-        const livePos = calcLivePosition(state) + (state.is_playing ? rttSec : 0);
+        const trackChanged = Boolean(
+          currentTrackId && loadedTrackIdRef.current && currentTrackId !== loadedTrackIdRef.current
+        );
+
+        const livePos = calcLivePosition(state);
 
         setRoom((prev) => {
           if (!prev) return null;
@@ -304,65 +488,79 @@ export const RoomView: FC = memo(() => {
           };
         });
 
-        // LISTENERS ONLY: apply play/pause/seek/speed sync
-        // Hosts manage their own audio directly
+        // LISTENERS ONLY: Continuous smooth audio playback without restarting or stuttering
         if (!isHostRef.current && audioRef.current) {
           const audio = audioRef.current;
 
-          // 1) Track changed → hot-swap source
-          if (newTrackUrl && loadedTrackUrlRef.current !== newTrackUrl) {
+          // 1) Track changed by host → change source
+          if (trackChanged && newTrackUrl) {
+            loadedTrackIdRef.current = currentTrackId;
             loadedTrackUrlRef.current = newTrackUrl;
-            audio.src = newTrackUrl;
-            audio.load();
-            autoplayBlockedRef.current = false;
-            setAutoplayBlocked(false);
+            if (audio.src !== newTrackUrl) {
+              audio.src = newTrackUrl;
+              audio.load();
+            }
+            if (state.is_playing) {
+              attemptPlayListener(audio, livePos);
+            }
             return;
           }
 
-          // 2) High-precision drift correction
-          if (state.is_playing) {
-            const diff = livePos - audio.currentTime; // Positive: listener behind; Negative: listener ahead
-            const absDrift = Math.abs(diff);
-
-            if (absDrift > 0.4 && !autoplayBlockedRef.current) {
-              // Large drift (>400ms): hard seek to live position
-              audio.currentTime = livePos;
-              audio.playbackRate = 1.0;
-            } else if (absDrift > 0.04 && !audio.paused) {
-              // Small drift (40ms - 400ms): dynamically adjust playback rate to seamlessly catch up/slow down
-              if (diff > 0) {
-                // Listener is behind host -> speed up slightly (e.g. 1.03x to 1.05x)
-                audio.playbackRate = Math.min(1.06, 1.0 + diff * 0.15);
-              } else {
-                // Listener is ahead of host -> slow down slightly (e.g. 0.95x to 0.97x)
-                audio.playbackRate = Math.max(0.94, 1.0 + diff * 0.15);
-              }
-            } else {
-              // In tight sync (<40ms drift): normal speed
-              audio.playbackRate = 1.0;
-            }
-          } else {
-            audio.playbackRate = 1.0;
+          // If audio has no src set yet, set it
+          if (newTrackUrl && (!audio.src || audio.src === '' || audio.src === window.location.href)) {
+            loadedTrackIdRef.current = currentTrackId;
+            loadedTrackUrlRef.current = newTrackUrl;
+            audio.src = newTrackUrl;
+            audio.load();
           }
 
-          // 3) Play/pause enforcement (guarded against autoplay frame loops)
-          if (state.is_playing && audio.paused) {
-            attemptPlayListener(audio, livePos);
-          } else if (!state.is_playing && !audio.paused) {
-            audio.pause();
-            audio.currentTime = state.position_seconds; // anchor at exact pause point
+          // 2) Seamless Playback & Smooth Drift Alignment
+          if (state.is_playing) {
+            if (audio.paused) {
+              // Only attempt play when paused - never restart if already playing!
+              if (!autoplayBlockedRef.current) {
+                attemptPlayListener(audio, livePos);
+              }
+            } else {
+              // Audio is ALREADY playing continuously -> never reset currentTime on small drift!
+              const drift = livePos - audio.currentTime;
+              const absDrift = Math.abs(drift);
+              const nowMs = performance.now();
+
+              // Hard seek ONLY on severe desync (> 8 seconds) with 10s cooldown
+              if (absDrift > 8.0 && nowMs - lastHardSeekTimeRef.current > 10000) {
+                lastHardSeekTimeRef.current = nowMs;
+                audio.currentTime = livePos;
+                audio.playbackRate = 1.0;
+              } else if (absDrift > 0.4) {
+                // Gentle playback rate adjustment (imperceptible pitch shift, no clicks or reloads)
+                if (drift > 0) {
+                  audio.playbackRate = 1.02;
+                } else {
+                  audio.playbackRate = 0.98;
+                }
+              } else {
+                audio.playbackRate = 1.0;
+              }
+            }
+          } else {
+            // Room paused by host
             audio.playbackRate = 1.0;
+            if (!audio.paused) {
+              audio.pause();
+              audio.currentTime = state.position_seconds || 0;
+            }
           }
         }
       } catch (err) {
         console.warn('Sync poll error:', err);
       }
-    }, 800);
+    }, 1500);
 
     return () => clearInterval(syncInterval);
-  }, [code, isSeeking, attemptPlayListener]);
+  }, [code, isSeeking, calcLivePosition, attemptPlayListener]);
 
-  // Real-time timestamp ticker for listeners and joiners (updates UI every 250ms)
+  // Real-time timestamp ticker for listeners and joiners (updates UI smoothly every 250ms)
   useEffect(() => {
     const timer = setInterval(() => {
       if (isSeeking) return;
@@ -371,44 +569,13 @@ export const RoomView: FC = memo(() => {
         if (audioRef.current.duration && !isNaN(audioRef.current.duration)) {
           setDuration(audioRef.current.duration);
         }
-      } else if (roomRef.current) {
+      } else if (roomRef.current?.is_playing) {
         const livePos = calcLivePosition(roomRef.current);
         setCurrentTime(livePos);
       }
     }, 250);
     return () => clearInterval(timer);
   }, [isSeeking]);
-
-  // Automatic 10-second Timestamp Auto-Adjuster for all connected users
-  useEffect(() => {
-    if (!code || isSeeking) return;
-
-    const tenSecCheckInterval = setInterval(async () => {
-      if (!isHostRef.current && audioRef.current && roomRef.current) {
-        try {
-          const freshState = await roomService.getRoomState(code);
-          const livePos = calcLivePosition(freshState);
-          const audio = audioRef.current;
-          const drift = Math.abs(livePos - audio.currentTime);
-
-          if (freshState.is_playing) {
-            // Auto-adjust timestamp if drift is > 0.5s or if audio is paused while room is playing
-            if (drift > 0.5 || audio.paused) {
-              audio.currentTime = livePos;
-              audio.play().catch(() => {});
-            }
-          } else if (!freshState.is_playing && !audio.paused) {
-            audio.pause();
-            audio.currentTime = freshState.position_seconds;
-          }
-        } catch (err) {
-          console.warn('10-sec timestamp check error:', err);
-        }
-      }
-    }, 10000);
-
-    return () => clearInterval(tenSecCheckInterval);
-  }, [code, isSeeking]);
 
   // Manual Sync & Refresh Audio Button Handler
   const handleSyncAudio = async () => {
@@ -493,12 +660,21 @@ export const RoomView: FC = memo(() => {
   const handleHostTogglePlay = async () => {
     if (!isHost || !room) return;
     const nextPlay = !room.is_playing;
-    const pos = audioRef.current ? audioRef.current.currentTime : room.position_seconds;
+    const pos = audioRef.current ? audioRef.current.currentTime : (room.position_seconds || 0);
 
-    if (nextPlay) {
-      audioRef.current?.play().catch(() => {});
-    } else {
-      audioRef.current?.pause();
+    const audio = audioRef.current;
+    if (audio) {
+      if (nextPlay) {
+        audio.muted = false;
+        if (audio.volume === 0) audio.volume = volume || 0.8;
+        if (trackAudioUrl && audio.src !== trackAudioUrl) {
+          audio.src = trackAudioUrl;
+          audio.load();
+        }
+        audio.play().catch((e) => console.warn('Host play error:', e));
+      } else {
+        audio.pause();
+      }
     }
 
     try {
@@ -550,14 +726,27 @@ export const RoomView: FC = memo(() => {
         prev ? { ...prev, current_track: updated.current_track, is_playing: true } : null
       );
 
-      // Host: update local audio element
-      const newUrl = updated.current_track?.audio_file || updated.current_track?.media_url;
-      if (newUrl && audioRef.current) {
-        loadedTrackUrlRef.current = newUrl;
-        audioRef.current.src = newUrl;
+      // Host: update local audio element with normalized public URL
+      const rawUrl =
+        updated.current_track?.audio_file ||
+        updated.current_track?.audio_url ||
+        updated.current_track?.media_url ||
+        updated.current_track?.url ||
+        track?.audio_file ||
+        track?.audio_url ||
+        track?.media_url ||
+        track?.url;
+      const normalizedUrl = normalizeMediaUrl(rawUrl);
+
+      if (normalizedUrl && audioRef.current) {
+        loadedTrackIdRef.current = String(track.id);
+        loadedTrackUrlRef.current = normalizedUrl;
+        audioRef.current.src = normalizedUrl;
         audioRef.current.load();
         audioRef.current.currentTime = 0;
-        audioRef.current.play().catch(() => {});
+        audioRef.current.muted = false;
+        audioRef.current.volume = volume || 0.8;
+        audioRef.current.play().catch((e) => console.warn('Host play error:', e));
       }
 
       message.success(`Now playing: ${track.title || track.name}`);
@@ -664,11 +853,14 @@ export const RoomView: FC = memo(() => {
   }
 
   const track = room.current_track;
-  const trackAudioUrl = track?.audio_file || track?.media_url;
-  const trackArtwork =
+  const trackAudioUrl = normalizeMediaUrl(
+    track?.audio_file || track?.audio_url || track?.media_url || track?.url
+  );
+  const trackArtwork = normalizeMediaUrl(
     track?.thumbnail ||
-    track?.album?.images?.[0]?.url ||
-    'https://community.spotify.com/t5/image/serverpage/image-id/25294i28328C78821614C4';
+    track?.album?.images?.[0]?.url,
+    'https://community.spotify.com/t5/image/serverpage/image-id/25294i28328C78821614C4'
+  );
 
   const inviteLink = `${window.location.origin}/room/${room.code}`;
 
@@ -689,72 +881,83 @@ export const RoomView: FC = memo(() => {
   return (
     <div className='room-view-container'>
       {/* Hidden Audio Element for playback */}
-      {trackAudioUrl && (
-        <audio
-          ref={audioRef}
-          src={trackAudioUrl}
-          onTimeUpdate={onTimeUpdate}
-          onLoadedMetadata={async () => {
-            const audio = audioRef.current;
-            if (!audio) return;
+      <audio
+        ref={audioRef}
+        src={trackAudioUrl || undefined}
+        preload='auto'
+        playsInline
+        onTimeUpdate={onTimeUpdate}
+        onPlay={() => setIsAudioPlaying(true)}
+        onPlaying={() => setIsAudioPlaying(true)}
+        onPause={() => setIsAudioPlaying(false)}
+        onCanPlay={() => {
+          const audio = audioRef.current;
+          if (!audio) return;
+          const currentRoom = roomRef.current;
+          if (currentRoom?.is_playing && audio.paused) {
+            if (isHostRef.current) {
+              audio.muted = false;
+              if (audio.volume === 0) audio.volume = volume || 0.8;
+              audio.play().catch(() => {});
+            } else if (!isAudioPlaying) {
+              const livePos = calcLivePosition(currentRoom);
+              attemptPlayListener(audio, livePos);
+            }
+          }
+        }}
+        onError={(e) => {
+          console.warn('Audio playback error on element:', e);
+        }}
+        onLoadedMetadata={() => {
+          const audio = audioRef.current;
+          if (!audio) return;
 
-            setDuration(audio.duration);
-            loadedTrackUrlRef.current = trackAudioUrl;
-            audio.volume = volume;
+          setDuration(audio.duration);
+          if (trackAudioUrl) loadedTrackUrlRef.current = trackAudioUrl;
+          if (room?.current_track) {
+            loadedTrackIdRef.current = String(room.current_track.id);
+          }
+          audio.volume = volume || 0.8;
+          audio.muted = muted;
 
-            // ─── Fetch FRESH state from server at the moment audio is ready ───
-            try {
-              const freshState = await roomService.getRoomState(code!);
-              const livePos = calcLivePosition(freshState);
-
-              if (freshState.is_playing) {
-                if (isHostRef.current) {
-                  audio.currentTime = livePos;
-                  audio.play().catch(() => {});
-                } else {
-                  attemptPlayListener(audio, livePos);
-                }
-              } else {
-                audio.pause();
-                audio.currentTime = freshState.position_seconds;
+          const currentRoom = roomRef.current;
+          if (currentRoom) {
+            const livePos = calcLivePosition(currentRoom);
+            if (currentRoom.is_playing) {
+              audio.muted = false;
+              if (audio.volume === 0) audio.volume = volume || 0.8;
+              if (isHostRef.current) {
+                audio.play().catch(() => {});
+              } else if (audio.paused) {
+                attemptPlayListener(audio, livePos);
               }
-            } catch {
-              const cachedRoom = roomRef.current;
-              if (cachedRoom) {
-                const livePos = calcLivePosition(cachedRoom);
-                if (cachedRoom.is_playing) {
-                  if (isHostRef.current) {
-                    audio.currentTime = livePos;
-                    audio.play().catch(() => {});
-                  } else {
-                    attemptPlayListener(audio, livePos);
-                  }
-                }
+            } else {
+              audio.pause();
+              audio.currentTime = currentRoom.position_seconds || 0;
+            }
+          }
+        }}
+        onEnded={() => {
+          // When a track ends, only the host advances or pauses for the room
+          if (isHostRef.current && roomRef.current) {
+            const curTrk = roomRef.current.current_track;
+            if (availableTracks.length > 0 && curTrk) {
+              const idx = availableTracks.findIndex((t) => t.id === curTrk.id);
+              const nextIdx = idx >= 0 ? (idx + 1) % availableTracks.length : 0;
+              const nextTrack = availableTracks[nextIdx];
+              if (nextTrack) {
+                handleSelectTrack(nextTrack);
+                return;
               }
             }
-          }}
-          onEnded={() => {
-            // When a track ends, only the host advances or pauses for the room
-            if (isHostRef.current && roomRef.current) {
-              const curTrk = roomRef.current.current_track;
-              if (availableTracks.length > 0 && curTrk) {
-                const idx = availableTracks.findIndex((t) => t.id === curTrk.id);
-                const nextIdx = idx >= 0 ? (idx + 1) % availableTracks.length : 0;
-                const nextTrack = availableTracks[nextIdx];
-                if (nextTrack) {
-                  handleSelectTrack(nextTrack);
-                  return;
-                }
-              }
-              roomService.syncPlayback(roomRef.current.code, {
-                action: 'pause',
-                position_seconds: 0,
-              }).catch(() => {});
-              setRoom((prev) => prev ? { ...prev, is_playing: false } : null);
-            }
-          }}
-        />
-      )}
+            roomService.syncPlayback(roomRef.current.code, {
+              action: 'pause',
+              position_seconds: 0,
+            }).catch(() => {});
+            setRoom((prev) => prev ? { ...prev, is_playing: false } : null);
+          }
+        }}
+      />
 
       {/* Top Header Bar */}
       <div className='room-header'>
@@ -804,6 +1007,26 @@ export const RoomView: FC = memo(() => {
             <span>Invite Friends</span>
           </button>
 
+          {/* ── DIRECT AUDIO URL LINK FOR TESTING ── */}
+          {loadedTrackUrlRef.current && (
+            <a
+              href={loadedTrackUrlRef.current}
+              target='_blank'
+              rel='noopener noreferrer'
+              className='room-action-btn'
+              style={{
+                background: 'rgba(255, 255, 255, 0.08)',
+                color: '#34d399',
+                border: '1px solid rgba(52, 211, 153, 0.25)',
+                textDecoration: 'none',
+              }}
+              title='Open direct audio stream URL in new tab'
+            >
+              <FaLink size={12} />
+              <span>Direct Audio Link</span>
+            </a>
+          )}
+
           {isHost && (
             <button
               type='button'
@@ -816,45 +1039,37 @@ export const RoomView: FC = memo(() => {
             </button>
           )}
 
-          <button
-            type='button'
-            onClick={handleSyncAudio}
-            title='Sync audio with live host timestamp'
-            className='room-action-btn room-action-btn--sync'
-          >
-            <FaRotateRight size={12} />
-            <span>Sync Audio</span>
-          </button>
-
-          <button
-            type='button'
-            onClick={handleLeaveRoom}
-            className='room-action-btn room-action-btn--leave'
-            title='Leave Room'
-          >
-            <FaDoorOpen size={13} />
-            <span>Leave</span>
-          </button>
+          {!isHost && (
+            <button
+              type='button'
+              onClick={handleLeaveRoom}
+              className='room-action-btn room-action-btn--leave'
+              title='Leave Jam Room'
+            >
+              <FaDoorOpen size={12} />
+              <span>Leave</span>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Mobile View Switcher Tab Bar (Visible on < 1024px) */}
-      <div className='room-mobile-tab-bar'>
+      {/* Mobile Tab Switcher */}
+      <div className='room-mobile-tabs'>
         <button
           type='button'
-          className={`room-mobile-tab-bar__tab ${mobileTab === 'player' ? 'is-active' : ''}`}
           onClick={() => setMobileTab('player')}
+          className={`room-mobile-tab-btn ${mobileTab === 'player' ? 'active' : ''}`}
         >
-          <FaMusic size={13} />
-          <span>Player Stage {room.is_playing ? '●' : ''}</span>
+          <FaHeadphones size={13} />
+          <span>Stage</span>
         </button>
         <button
           type='button'
-          className={`room-mobile-tab-bar__tab ${mobileTab === 'chat' ? 'is-active' : ''}`}
           onClick={() => setMobileTab('chat')}
+          className={`room-mobile-tab-btn ${mobileTab === 'chat' ? 'active' : ''}`}
         >
-          <FaUsers size={13} />
-          <span>Live Chat ({messages.length})</span>
+          <FaComments size={13} />
+          <span>Chat {messages.length > 0 && `(${messages.length})`}</span>
         </button>
       </div>
 
@@ -890,17 +1105,84 @@ export const RoomView: FC = memo(() => {
                     width: '8px',
                     height: '8px',
                     borderRadius: '50%',
-                    background: '#10b981',
-                    boxShadow: '0 0 10px #10b981',
+                    background: isAudioPlaying ? '#10b981' : '#f59e0b',
+                    boxShadow: isAudioPlaying ? '0 0 10px #10b981' : '0 0 10px #f59e0b',
                   }}
                 />
-                <span>Listening with {room.host_name} (In Sync)</span>
+                <span>
+                  {isAudioPlaying
+                    ? `Listening with ${room.host_name} (In Sync)`
+                    : `Connected to ${room.host_name}'s Room (Click to Play Sound)`}
+                </span>
               </>
             )}
           </div>
 
+          {/* Autoplay / Click-to-Listen Banner for Listeners */}
+          {!isHost && room.is_playing && (!isAudioPlaying || autoplayBlocked) && (
+            <div
+              onClick={handleStartListening}
+              style={{
+                cursor: 'pointer',
+                marginBottom: '20px',
+                padding: '12px 18px',
+                borderRadius: '14px',
+                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.25) 0%, rgba(5, 150, 105, 0.35) 100%)',
+                border: '2px solid #10b981',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px',
+                boxShadow: '0 0 24px rgba(16, 185, 129, 0.35)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '20px' }}>🔊</span>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#ffffff' }}>
+                    Live Audio Streaming • Click to Listen
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#a7f3d0' }}>
+                    Tap anywhere or click button to enable synchronized audio
+                  </div>
+                </div>
+              </div>
+              <button
+                type='button'
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleStartListening();
+                }}
+                style={{
+                  background: '#10b981',
+                  color: '#000',
+                  border: 'none',
+                  borderRadius: '9999px',
+                  padding: '6px 16px',
+                  fontSize: '12px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  flexShrink: 0,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                }}
+              >
+                <FaPlay size={10} />
+                <span>UNMUTE & PLAY</span>
+              </button>
+            </div>
+          )}
+
           {/* Vinyl / Album Art */}
-          <div className='room-vinyl-wrapper'>
+          <div
+            className='room-vinyl-wrapper'
+            onClick={!isHost && room.is_playing && !isAudioPlaying ? handleStartListening : undefined}
+            style={{
+              cursor: !isHost && room.is_playing && !isAudioPlaying ? 'pointer' : 'default',
+            }}
+          >
             <img
               src={trackArtwork}
               alt=''
@@ -1251,7 +1533,7 @@ export const RoomView: FC = memo(() => {
                       >
                         {!isMe && (
                           <img
-                            src={msg.avatar}
+                            src={normalizeMediaUrl(msg.avatar, 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png')}
                             alt=''
                             style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }}
                           />
@@ -1358,7 +1640,7 @@ export const RoomView: FC = memo(() => {
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <img
-                        src={m.avatar}
+                        src={normalizeMediaUrl(m.avatar, 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png')}
                         alt=''
                         style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }}
                       />
@@ -1662,7 +1944,7 @@ export const RoomView: FC = memo(() => {
                                   onClick={(e) => e.stopPropagation()}
                                 />
                                 <img
-                                  src={friend.avatar || 'https://cdn-icons-png.flaticon.com/512/847/847969.png'}
+                                  src={normalizeMediaUrl(friend.avatar, 'https://cdn-icons-png.flaticon.com/512/847/847969.png')}
                                   alt=''
                                   style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
                                 />
@@ -1985,6 +2267,90 @@ export const RoomView: FC = memo(() => {
               ))
             )}
           </div>
+        </div>
+      </Modal>
+
+      {/* ═══ JOIN / ENABLE SOUND MODAL FOR LISTENERS ═══ */}
+      <Modal
+        open={!isHost && !audioUnlocked}
+        onCancel={() => {
+          setAudioUnlocked(true);
+        }}
+        footer={null}
+        centered
+        closable={false}
+        maskClosable={false}
+        styles={{
+          mask: { background: 'rgba(0, 0, 0, 0.85)', backdropFilter: 'blur(8px)' },
+          content: {
+            background: 'linear-gradient(135deg, #181818 0%, #121212 100%)',
+            borderRadius: '24px',
+            border: '1px solid rgba(16, 185, 129, 0.3)',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 40px rgba(16, 185, 129, 0.2)',
+            padding: '32px 24px',
+            textAlign: 'center',
+          },
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '18px' }}>
+          <div
+            style={{
+              width: '72px',
+              height: '72px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#000',
+              fontSize: '32px',
+              boxShadow: '0 0 30px rgba(16, 185, 129, 0.5)',
+            }}
+          >
+            🎧
+          </div>
+          <div>
+            <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#ffffff', margin: '0 0 8px' }}>
+              Join Jam & Enable Sound
+            </h2>
+            <p style={{ fontSize: '13px', color: '#a0a0a0', margin: 0, lineHeight: 1.5, maxWidth: '340px' }}>
+              Browser autoplay policy requires a quick click to unlock live synchronized audio playback for this session.
+            </p>
+          </div>
+
+          <button
+            type='button'
+            onClick={handleJoinAndEnableSound}
+            style={{
+              width: '100%',
+              maxWidth: '320px',
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              color: '#000000',
+              border: 'none',
+              borderRadius: '14px',
+              padding: '14px 24px',
+              fontSize: '15px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px',
+              boxShadow: '0 8px 24px rgba(16, 185, 129, 0.4)',
+              transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'scale(1.02)';
+              e.currentTarget.style.boxShadow = '0 10px 30px rgba(16, 185, 129, 0.6)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+              e.currentTarget.style.boxShadow = '0 8px 24px rgba(16, 185, 129, 0.4)';
+            }}
+          >
+            <FaPlay size={14} />
+            <span>JOIN JAM & UNMUTE AUDIO</span>
+          </button>
         </div>
       </Modal>
 

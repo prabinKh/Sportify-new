@@ -1,7 +1,7 @@
 import axios from '../axios';
 import { store } from '../store/store';
 import { spotifyActions } from '../store/slices/spotify';
-import { formatLocalTrack } from '../utils';
+import { formatLocalTrack, normalizeMediaUrl } from '../utils';
 
 const audioElement = new Audio();
 let currentQueue: any[] = [];
@@ -102,7 +102,7 @@ const playCurrentIndex = async () => {
 
   const requestId = ++currentPlayRequestId;
 
-  let audioUrl = track.audio_file;
+  let audioUrl = normalizeMediaUrl(track.audio_file);
 
   if (!audioUrl || !audioUrl.startsWith('http') || audioUrl.includes('youtube.com')) {
     try {
@@ -112,8 +112,8 @@ const playCurrentIndex = async () => {
       const allTracks = res.data || [];
       const found = allTracks.find((t: any) => String(t.id) === trackId);
       if (found && found.audio_file) {
-        audioUrl = found.audio_file;
-        track.audio_file = found.audio_file;
+        audioUrl = normalizeMediaUrl(found.audio_file);
+        track.audio_file = audioUrl;
       }
     } catch (e) {
       console.warn('Could not fetch audio_file for track', e);
@@ -123,7 +123,7 @@ const playCurrentIndex = async () => {
   if (requestId !== currentPlayRequestId) return;
 
   if (!audioUrl && track.media_url && track.media_url.startsWith('http')) {
-    audioUrl = track.media_url;
+    audioUrl = normalizeMediaUrl(track.media_url);
   }
 
   if (audioUrl && audioUrl.startsWith('http')) {
