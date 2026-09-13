@@ -194,8 +194,8 @@ class RoomPlaybackSyncAPIView(APIView):
         if action == 'play':
             room.is_playing = True
             room.position_updated_at = now
-            # Schedule 500ms in the future so both host & listener pre-buffer and trigger audio simultaneously
-            start_at_server_time = current_server_sec + 0.50
+            # AmpMe-style synchronized buffer window: 2.0s allows all devices to download buffer & lock clock
+            start_at_server_time = current_server_sec + 2.0
         elif action == 'heartbeat':
             if position_raw is not None:
                 try:
@@ -212,14 +212,14 @@ class RoomPlaybackSyncAPIView(APIView):
         elif action == 'seek':
             room.position_updated_at = now
             if room.is_playing:
-                start_at_server_time = current_server_sec + 0.35
+                start_at_server_time = current_server_sec + 1.2
         elif action == 'change_track':
             room.position_seconds = 0.0
             room.position_updated_at = now
             if request.data.get('auto_play', True):
                 room.is_playing = True
-                # Allow 600ms for pre-buffering new audio file
-                start_at_server_time = current_server_sec + 0.60
+                # Allow 2.2s for pre-buffering new audio file across all devices
+                start_at_server_time = current_server_sec + 2.2
 
         room.save()
 

@@ -106,6 +106,7 @@ export const RoomView: FC = memo(() => {
   const lastHardSeekTimeRef = useRef<number>(0);
   const clockOffsetRef = useRef<number>(0);
   const scheduledPlayTimerRef = useRef<any>(null);
+  const [syncCountdown, setSyncCountdown] = useState<number | null>(null);
 
   // Keep refs in sync so async intervals always have fresh values
   useEffect(() => { roomRef.current = room; }, [room]);
@@ -124,6 +125,28 @@ export const RoomView: FC = memo(() => {
       clockOffsetRef.current = offset;
     }).catch(() => {});
   }, []);
+
+  // Live countdown ticker for AmpMe-style synchronized buffer animation
+  useEffect(() => {
+    if (!room?.is_playing || !room?.start_at_server_time) {
+      setSyncCountdown(null);
+      return;
+    }
+
+    const checkCountdown = () => {
+      const syncedNow = (Date.now() + clockOffsetRef.current) / 1000;
+      const remaining = (room.start_at_server_time || 0) - syncedNow;
+      if (remaining > 0.05) {
+        setSyncCountdown(remaining);
+      } else {
+        setSyncCountdown(null);
+      }
+    };
+
+    checkCountdown();
+    const timer = setInterval(checkCountdown, 50);
+    return () => clearInterval(timer);
+  }, [room?.is_playing, room?.start_at_server_time]);
 
   /**
    * Calculates live playback position using the server-computed position or server_timestamp.
@@ -1297,11 +1320,12 @@ export const RoomView: FC = memo(() => {
             </div>
           )}
 
-          {/* Vinyl / Album Art */}
+            {/* Vinyl / Album Art */}
           <div
             className='room-vinyl-wrapper'
             onClick={!isHost && room.is_playing && !isAudioPlaying ? handleStartListening : undefined}
             style={{
+              position: 'relative',
               cursor: !isHost && room.is_playing && !isAudioPlaying ? 'pointer' : 'default',
             }}
           >
@@ -1320,6 +1344,79 @@ export const RoomView: FC = memo(() => {
                 transition: 'all 0.3s ease',
               }}
             />
+
+            {/* AmpMe-Style Synchronized Countdown & Radar Wave Overlay */}
+            {syncCountdown !== null && syncCountdown > 0 && (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  borderRadius: '16px',
+                  background: 'rgba(0, 0, 0, 0.82)',
+                  backdropFilter: 'blur(8px)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '12px',
+                  zIndex: 10,
+                  padding: '16px',
+                  textAlign: 'center',
+                  border: '2px solid #10b981',
+                  boxShadow: '0 0 35px rgba(16, 185, 129, 0.5)',
+                }}
+              >
+                {/* Pulsating Radar Rings */}
+                <div style={{ position: 'relative', width: '64px', height: '64px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      borderRadius: '50%',
+                      border: '2px solid #10b981',
+                      animation: 'radarPulse 1.2s ease-out infinite',
+                    }}
+                  />
+                  <div
+                    style={{
+                      position: 'absolute',
+                      inset: '-8px',
+                      borderRadius: '50%',
+                      border: '1px solid rgba(16, 185, 129, 0.5)',
+                      animation: 'radarPulse 1.2s ease-out infinite 0.4s',
+                    }}
+                  />
+                  <div
+                    style={{
+                      width: '44px',
+                      height: '44px',
+                      borderRadius: '50%',
+                      background: '#10b981',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#000',
+                      fontWeight: 900,
+                      boxShadow: '0 0 20px #10b981',
+                    }}
+                  >
+                    <FaHeadphones size={20} />
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 800, color: '#34d399', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                    Syncing All Devices
+                  </div>
+                  <div style={{ fontSize: '26px', fontWeight: 900, color: '#ffffff', margin: '2px 0' }}>
+                    {syncCountdown.toFixed(1)}s
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#9ca3af', maxWidth: '210px', lineHeight: 1.3 }}>
+                    Buffering & locking clock across all smartphones 🎧
+                  </div>
+                </div>
+              </div>
+            )}
             {room.is_playing && (
               <div
                 style={{
@@ -2476,12 +2573,20 @@ export const RoomView: FC = memo(() => {
         </div>
       </Modal>
 
-      {/* Keyframes for playing bars animation */}
+      {/* Keyframes for playing bars and radar pulse animation */}
       <style>{`
         @keyframes bounce1 { from { height: 8px } to { height: 18px } }
         @keyframes bounce2 { from { height: 12px } to { height: 24px } }
         @keyframes bounce3 { from { height: 16px } to { height: 10px } }
         @keyframes bounce4 { from { height: 20px } to { height: 8px } }
+        @keyframes radarPulse {
+          0% { transform: scale(0.6); opacity: 1; }
+          100% { transform: scale(1.6); opacity: 0; }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: scale(0.96); }
+          to { opacity: 1; transform: scale(1); }
+        }
       `}</style>
     </div>
   );
