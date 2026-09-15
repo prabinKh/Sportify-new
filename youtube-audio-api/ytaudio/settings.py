@@ -210,11 +210,13 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
 CORS_ALLOWED_ORIGINS = [
     'http://127.0.0.1:3000',
     'http://localhost:3000',
+    'http://127.0.0.1:3004',
+    'http://localhost:3004',
     'http://127.0.0.1:5173',
     'http://localhost:5173',
 ]
 if LOCAL_IP and LOCAL_IP not in ('127.0.0.1', 'localhost'):
-    for port in ('3000', '5173', '8000'):
+    for port in ('3000', '3004', '5173', '8000', '8004'):
         url = f'http://{LOCAL_IP}:{port}'
         if url not in CORS_ALLOWED_ORIGINS:
             CORS_ALLOWED_ORIGINS.append(url)
@@ -227,13 +229,15 @@ SESSION_COOKIE_SECURE = False  # False so cookies work over plain HTTP in dev
 CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1:3000',
     'http://localhost:3000',
+    'http://127.0.0.1:3004',
+    'http://localhost:3004',
     'http://127.0.0.1:5173',
     'http://localhost:5173',
     'https://*.devtunnels.ms',
     'http://*.devtunnels.ms',
 ]
 if LOCAL_IP and LOCAL_IP not in ('127.0.0.1', 'localhost'):
-    for port in ('3000', '5173', '8000'):
+    for port in ('3000', '3004', '5173', '8000', '8004'):
         url = f'http://{LOCAL_IP}:{port}'
         if url not in CSRF_TRUSTED_ORIGINS:
             CSRF_TRUSTED_ORIGINS.append(url)

@@ -15,7 +15,12 @@ const resolveApiBaseUrl = (): string => {
     const protocol = window.location.protocol;
     const port = window.location.port;
 
-    // Production VPS host port 3001 -> maps to backend API port 8001
+    // Production VPS host port 3004 -> maps to backend API port 8004
+    if (port === '3004') {
+      return `${protocol}//${browserHost}:8004`;
+    }
+
+    // Support port 3001 -> 8001
     if (port === '3001') {
       return `${protocol}//${browserHost}:8001`;
     }
@@ -36,8 +41,8 @@ const resolveApiBaseUrl = (): string => {
       return `${protocol}//${browserHost}:8000`;
     }
 
-    // Default for any public VPS IP or domain without port 3000
-    return `${protocol}//${browserHost}:8001`;
+    // Default for VPS IP or custom domain
+    return `${protocol}//${browserHost}:8004`;
   }
 
   if (envUrl) {
