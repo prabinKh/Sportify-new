@@ -31,8 +31,8 @@ export const normalizeMediaUrl = (url?: string, defaultFallback = ''): string =>
   if (url.startsWith('/')) {
     return `${baseUrl}${url}`;
   }
-  if (/^https?:\/\/[^/]+:8000/i.test(url)) {
-    return url.replace(/^https?:\/\/[^/]+:8000/i, baseUrl);
+  if (/^https?:\/\/[^/]+:(8000|8001)/i.test(url)) {
+    return url.replace(/^https?:\/\/[^/]+:(8000|8001)/i, baseUrl);
   }
   return url;
 };

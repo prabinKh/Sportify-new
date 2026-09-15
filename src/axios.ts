@@ -4,9 +4,27 @@ import { getFromLocalStorageWithExpiry } from './utils/localstorage';
 import { cacheGet, cacheSet } from './utils/cache';
 
 const resolveApiBaseUrl = (): string => {
-  // If running in a browser, dynamically match the host the client used to connect (LAN IP or localhost)
+  const envUrl = (import.meta.env.VITE_API_BASE_URL as string)?.trim();
+  if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+    return /^https?:\/\//i.test(envUrl) ? envUrl : `http://${envUrl}`;
+  }
+
+  // If running in a browser, dynamically match the host and port
   if (typeof window !== 'undefined' && window.location.hostname) {
     const browserHost = window.location.hostname;
+    const protocol = window.location.protocol;
+    const port = window.location.port;
+
+    // Production VPS host port 3001 -> maps to backend API port 8001
+    if (port === '3001') {
+      return `${protocol}//${browserHost}:8001`;
+    }
+
+    // Local dev on port 3000 or 5173 -> maps to backend port 8000
+    if (port === '3000' || port === '5173') {
+      return `${protocol}//${browserHost}:8000`;
+    }
+
     const isLocalOrLan =
       browserHost === 'localhost' ||
       browserHost === '127.0.0.1' ||
@@ -15,11 +33,13 @@ const resolveApiBaseUrl = (): string => {
       /^172\.(1[6-9]|2\d|3[0-1])\./.test(browserHost);
 
     if (isLocalOrLan) {
-      return `${window.location.protocol}//${browserHost}:8000`;
+      return `${protocol}//${browserHost}:8000`;
     }
+
+    // Default for any public VPS IP or domain without port 3000
+    return `${protocol}//${browserHost}:8001`;
   }
 
-  const envUrl = (import.meta.env.VITE_API_BASE_URL as string)?.trim();
   if (envUrl) {
     return /^https?:\/\//i.test(envUrl) ? envUrl : `http://${envUrl}`;
   }
