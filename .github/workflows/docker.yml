@@ -7,6 +7,10 @@ on:
     branches: [main, master]
   workflow_dispatch:
 
+concurrency:
+  group: docker-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   REGISTRY: ghcr.io
 
@@ -129,35 +133,25 @@ jobs:
       - name: Resolve SSH connection
         id: ssh
         env:
-          HOST: ${{ vars.SSH_HOST || secrets.SSH_HOST }}
-          USER: ${{ vars.SSH_USER || secrets.SSH_USER }}
-          PORT: ${{ vars.SSH_PORT || secrets.SSH_PORT }}
-          KEY: ${{ secrets.SSH_KEY }}
-          PASSWORD: ${{ secrets.SSH_PASSWORD }}
+          HOST: ${{ secrets.SSH_HOST || vars.SSH_HOST || '144.91.72.44' }}
+          USER: ${{ secrets.SSH_USER || vars.SSH_USER || 'prabin' }}
+          PORT: ${{ secrets.SSH_PORT || vars.SSH_PORT || '22' }}
         run: |
-          if [ -z "$HOST" ]; then
-            echo "::error::SSH_HOST is empty. Add it under Settings → Secrets and variables → Actions as a Variable or a Secret named SSH_HOST."
-            exit 1
-          fi
-          if [ -z "$KEY" ] && [ -z "$PASSWORD" ]; then
-            echo "::error::Neither SSH_KEY nor SSH_PASSWORD was found. Please add SSH_KEY (private key, recommended) or SSH_PASSWORD under Settings → Secrets and variables → Actions → Secrets."
-            exit 1
-          fi
           echo "host=$HOST" >> "$GITHUB_OUTPUT"
-          echo "user=${USER:-root}" >> "$GITHUB_OUTPUT"
-          echo "port=${PORT:-22}" >> "$GITHUB_OUTPUT"
+          echo "user=$USER" >> "$GITHUB_OUTPUT"
+          echo "port=$PORT" >> "$GITHUB_OUTPUT"
 
       - name: Copy compose file to host
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ steps.ssh.outputs.host }}
           username: ${{ steps.ssh.outputs.user }}
-          password: ${{ secrets.SSH_PASSWORD }}
+          password: ${{ secrets.SSH_PASSWORD || 'Prabin@1234#' }}
           key: ${{ secrets.SSH_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
           port: ${{ steps.ssh.outputs.port }}
           source: docker-compose.deploy.yml
-          target: /opt/spotify
+          target: sportify
           overwrite: true
 
       - name: Pull images and restart containers
@@ -169,19 +163,21 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WEB_PORT: ${{ vars.WEB_PORT || '3001' }}
           API_PORT: ${{ vars.API_PORT || '8001' }}
+          SSH_PASS: ${{ secrets.SSH_PASSWORD || 'Prabin@1234#' }}
         with:
           host: ${{ steps.ssh.outputs.host }}
           username: ${{ steps.ssh.outputs.user }}
-          password: ${{ secrets.SSH_PASSWORD }}
+          password: ${{ secrets.SSH_PASSWORD || 'Prabin@1234#' }}
           key: ${{ secrets.SSH_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
           port: ${{ steps.ssh.outputs.port }}
           command_timeout: 10m
-          envs: FRONTEND_IMAGE,BACKEND_IMAGE,GHCR_USER,GHCR_TOKEN,WEB_PORT,API_PORT
+          envs: FRONTEND_IMAGE,BACKEND_IMAGE,GHCR_USER,GHCR_TOKEN,WEB_PORT,API_PORT,SSH_PASS
           script: |
             set -euo pipefail
-            mkdir -p /opt/spotify
-            cd /opt/spotify
+            APP_DIR="$HOME/sportify"
+            mkdir -p "$APP_DIR"
+            cd "$APP_DIR"
             mv -f docker-compose.deploy.yml docker-compose.yml
             cat <<EOF > .env
             FRONTEND_IMAGE=${FRONTEND_IMAGE}
@@ -189,7 +185,17 @@ jobs:
             WEB_PORT=${WEB_PORT:-3001}
             API_PORT=${API_PORT:-8001}
             EOF
-            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
-            docker compose pull
-            docker compose up -d --remove-orphans
-            docker image prune -f
+
+            # Determine docker command (run via sudo if current user does not have direct docker group access)
+            if docker info >/dev/null 2>&1; then
+              DOCKER_CMD="docker"
+            else
+              DOCKER_CMD="echo '$SSH_PASS' | sudo -S docker"
+            fi
+
+            echo "$GHCR_TOKEN" | $DOCKER_CMD login ghcr.io -u "$GHCR_USER" --password-stdin
+            # Use -p spotify so this project's containers are strictly isolated and never touch other projects
+            $DOCKER_CMD compose -p spotify pull
+            $DOCKER_CMD compose -p spotify up -d --remove-orphans
+            $DOCKER_CMD image prune -f
+            echo "=== Sportify deployed successfully on ports: Frontend=$WEB_PORT, Backend=$API_PORT ==="

@@ -22,7 +22,7 @@ services:
     ports:
       - "${API_PORT:-8001}:8000"
     volumes:
-      - api-media:/app/media
+      - spotify-media:/app/media
 
 volumes:
-  api-media:
+  spotify-media:
