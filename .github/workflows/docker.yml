@@ -116,6 +116,10 @@ jobs:
     permissions:
       contents: read
       packages: read
+    env:
+      SSH_HOST: ${{ vars.SSH_HOST || secrets.SSH_HOST }}
+      SSH_USER: ${{ vars.SSH_USER || secrets.SSH_USER || 'root' }}
+      SSH_PORT: ${{ vars.SSH_PORT || secrets.SSH_PORT || 22 }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -126,13 +130,20 @@ jobs:
           echo "FRONTEND_IMAGE=ghcr.io/${prefix}/frontend:latest" >> "$GITHUB_ENV"
           echo "BACKEND_IMAGE=ghcr.io/${prefix}/backend:latest" >> "$GITHUB_ENV"
 
+      - name: Verify SSH host is set
+        run: |
+          if [ -z "$SSH_HOST" ]; then
+            echo "::error::SSH_HOST is empty. Add SSH_HOST as a repository Variable or Secret under Settings → Secrets and variables → Actions (not an Environment unless this job sets environment:)."
+            exit 1
+          fi
+
       - name: Copy compose file to host
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ vars.SSH_HOST }}
-          username: ${{ vars.SSH_USER || 'root' }}
+          host: ${{ env.SSH_HOST }}
+          username: ${{ env.SSH_USER }}
           password: ${{ secrets.SSH_PASSWORD }}
-          port: ${{ vars.SSH_PORT || 22 }}
+          port: ${{ env.SSH_PORT }}
           source: docker-compose.deploy.yml
           target: /opt/spotify
           overwrite: true
@@ -145,10 +156,10 @@ jobs:
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          host: ${{ vars.SSH_HOST }}
-          username: ${{ vars.SSH_USER || 'root' }}
+          host: ${{ env.SSH_HOST }}
+          username: ${{ env.SSH_USER }}
           password: ${{ secrets.SSH_PASSWORD }}
-          port: ${{ vars.SSH_PORT || 22 }}
+          port: ${{ env.SSH_PORT }}
           command_timeout: 10m
           envs: FRONTEND_IMAGE,BACKEND_IMAGE,GHCR_USER,GHCR_TOKEN
           script: |
