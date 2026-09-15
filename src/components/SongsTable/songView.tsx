@@ -40,6 +40,7 @@ interface DefaultProps {
   playlist?: Playlist | null;
   artist?: Artist | null;
   onToggleLike?: () => void;
+  onRowClick?: () => void;
 
   view: 'LIST' | 'COMPACT';
   context: {
@@ -62,12 +63,21 @@ interface SongViewProps extends DefaultProps {
   fields: ((props: ComponentProps) => React.ReactElement | null)[];
 }
 
-const getArtists = (artists: Track['artists']) => {
+const getArtists = (artists: Track['artists'], song?: Track) => {
   const safeArtists = (artists || []).slice(0, 3);
   return safeArtists.map((a, i) => (
     <span key={a.id}>
       <ArtistActionsWrapper artist={a} trigger={['contextMenu']}>
-        <Link key={a.id} to={`/artist/${a.id}`} style={{ cursor: 'pointer' }}>
+        <Link
+          key={a.id}
+          to={`/artist/${a.id}`}
+          style={{ cursor: 'pointer' }}
+          onClick={() => {
+            if (song) {
+              playerService.startPlayback({ track: song, uris: [song.uri] });
+            }
+          }}
+        >
           {a.name}
         </Link>
       </ArtistActionsWrapper>
@@ -178,7 +188,7 @@ const TitleWithCover = (props: ComponentProps) => {
             >
               {song.explicit ? <span className='explicit'>E</span> : null}
               <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {getArtists(song.artists)}
+                {getArtists(song.artists, song)}
               </div>
             </div>
           ) : null}
@@ -256,7 +266,7 @@ const Title = (props: ComponentProps) => {
             >
               {song.explicit ? <span className='explicit'>E</span> : null}
               <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {getArtists(song.artists)}
+                {getArtists(song.artists, song)}
               </div>
             </div>
           ) : null}
@@ -293,7 +303,7 @@ const Artists = ({ song, isList }: ComponentProps) => {
   if (isList) return null;
   return (
     <p className='text-left tablet-hidden' style={{ flex: 5 }}>
-      {getArtists(song.artists)}
+      {getArtists(song.artists, song)}
     </p>
   );
 };
@@ -508,6 +518,10 @@ export const SongView = (props: SongViewProps) => {
   const isList = selectedView === 'LIST';
 
   const onClick = useCallback(() => {
+    if (props.onRowClick) {
+      props.onRowClick();
+      return;
+    }
     if (isCurrent && isPlaying) {
       return playerService.pausePlayback();
     }
@@ -515,7 +529,7 @@ export const SongView = (props: SongViewProps) => {
       return playerService.startPlayback();
     }
     return playerService.startPlayback({ track: song, ...context });
-  }, [isCurrent, isPlaying, context, song]);
+  }, [props.onRowClick, isCurrent, isPlaying, context, song]);
 
   return (
     <TrackActionsWrapper

@@ -1,3 +1,5 @@
+import { API_BASE_URL } from './axios';
+
 export const secondsToTime = (seconds: number) => {
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
@@ -20,17 +22,17 @@ export const formatEpisodeDuration = (ms: number) => {
 
   return `${minutes} min ${seconds} sec`;
 };
+
 export const normalizeMediaUrl = (url?: string, defaultFallback = ''): string => {
   if (!url) return defaultFallback;
-  const baseUrl =
-    (import.meta.env.VITE_API_BASE_URL as string)?.replace(/\/+$/, '') ||
-    'https://b5szs4k9-8000.inc1.devtunnels.ms';
+
+  const baseUrl = API_BASE_URL.replace(/\/+$/, '');
 
   if (url.startsWith('/')) {
     return `${baseUrl}${url}`;
   }
-  if (url.includes('localhost:8000') || url.includes('127.0.0.1:8000')) {
-    return url.replace(/https?:\/\/(localhost|127\.0\.0\.1):8000/, baseUrl);
+  if (/^https?:\/\/[^/]+:8000/i.test(url)) {
+    return url.replace(/^https?:\/\/[^/]+:8000/i, baseUrl);
   }
   return url;
 };
@@ -88,7 +90,8 @@ export const formatLocalTrack = (track: any): any => {
     },
     audio_file: audioFile,
     saved: track.saved ?? (track.is_favorite || false),
-    downloaded_at: track.downloaded_at || track.created_at || new Date().toISOString(),
+    downloaded_at: track.downloaded_at || track.created_at || null,
+    created_at: track.created_at || null,
   };
 };
 

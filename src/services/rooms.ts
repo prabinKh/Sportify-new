@@ -211,7 +211,7 @@ export class JamSyncSocket {
       }, 5000);
       
       // Initial ping
-      this.ws.send(JSON.stringify({ type: 'ping', client_time: Date.now() }));
+      this.ws?.send(JSON.stringify({ type: 'ping', client_time: Date.now() }));
     };
 
     this.ws.onmessage = (event) => {
@@ -237,6 +237,12 @@ export class JamSyncSocket {
     this.ws.onerror = () => {
       this.isConnecting = false;
     };
+  }
+
+  send(data: any) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(data));
+    }
   }
 
   getSyncedNowMs(): number {

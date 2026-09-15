@@ -2,7 +2,7 @@ from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from django.db.models import Count, Q
+from django.db.models import Count, Q, F
 from django.http import FileResponse, HttpResponse
 import os
 import io
@@ -166,7 +166,7 @@ class ArtistAudiosAPIView(generics.ListAPIView):
             .filter(youtube_channel_id=artist_id)
             .filter(audio_file__isnull=False)
             .exclude(audio_file='')
-            .order_by('-downloaded_at')
+            .order_by(F('downloaded_at').desc(nulls_last=True), '-created_at', '-id')
         )
 
     def get_serializer_context(self):
@@ -189,7 +189,7 @@ class LocalTrackListAPIView(generics.ListAPIView):
             .filter(audio_file__isnull=False)
             .exclude(audio_file='')
             .select_related('youtube_channel')
-            .order_by('-downloaded_at')
+            .order_by(F('downloaded_at').desc(nulls_last=True), '-created_at', '-id')
         )
 
     def list(self, request, *args, **kwargs):

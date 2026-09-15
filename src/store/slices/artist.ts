@@ -2,7 +2,7 @@ import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 // Services
 import { userService } from '../../services/users';
-import { artistService } from '../../services/artist';
+import { artistService, sortTracksByLatestDownload } from '../../services/artist';
 
 // Interfaces
 import type { Album } from '../../interfaces/albums';
@@ -79,7 +79,8 @@ export const fetchArtist = createAsyncThunk<[Artist, boolean, TrackWithSave[], A
     const artist = responses[0].data as Artist;
     const [following] = responses[1].data as boolean[];
 
-    const tracks = (responses[2].data as any).tracks as Track[];
+    const rawTracks = (responses[2].data as any).tracks as Track[];
+    const tracks = sortTracksByLatestDownload(rawTracks);
 
     const allAlbums = (responses[3].data as Pagination<Album>).items as Album[];
     const albums = allAlbums.filter((a) => a.album_type === 'album');
@@ -144,7 +145,7 @@ const artistSlice = createSlice({
       const p = action.payload;
       state.artist = p.artist;
       state.following = p.following;
-      state.topTracks = p.topTracks;
+      state.topTracks = sortTracksByLatestDownload(p.topTracks || []);
       state.albums = p.albums;
       state.singles = p.singles;
       state.appearsOn = p.appearsOn;

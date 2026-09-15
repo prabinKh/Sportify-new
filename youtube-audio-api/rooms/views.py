@@ -194,8 +194,8 @@ class RoomPlaybackSyncAPIView(APIView):
         if action == 'play':
             room.is_playing = True
             room.position_updated_at = now
-            # AmpMe-style synchronized buffer window: 2.0s allows all devices to download buffer & lock clock
-            start_at_server_time = current_server_sec + 2.0
+            # Synchronized playback: schedule 350ms in future so all devices start at the exact same millisecond
+            start_at_server_time = current_server_sec + 0.35
         elif action == 'heartbeat':
             if position_raw is not None:
                 try:
@@ -203,23 +203,29 @@ class RoomPlaybackSyncAPIView(APIView):
                 except (ValueError, TypeError):
                     pass
             room.position_updated_at = now
+            start_at_server_time = None
         elif action == 'pause':
             if room.is_playing and position_raw is None:
                 elapsed = (now - room.position_updated_at).total_seconds()
                 room.position_seconds = max(0.0, room.position_seconds + elapsed)
             room.is_playing = False
             room.position_updated_at = now
+            start_at_server_time = None
         elif action == 'seek':
             room.position_updated_at = now
             if room.is_playing:
-                start_at_server_time = current_server_sec + 1.2
+                start_at_server_time = current_server_sec + 0.35
+            else:
+                start_at_server_time = None
         elif action == 'change_track':
             room.position_seconds = 0.0
             room.position_updated_at = now
             if request.data.get('auto_play', True):
                 room.is_playing = True
-                # Allow 2.2s for pre-buffering new audio file across all devices
-                start_at_server_time = current_server_sec + 2.2
+                start_at_server_time = current_server_sec + 0.35
+            else:
+                room.is_playing = False
+                start_at_server_time = None
 
         room.save()
 

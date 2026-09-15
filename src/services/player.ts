@@ -2,6 +2,7 @@ import axios from '../axios';
 import { store } from '../store/store';
 import { spotifyActions } from '../store/slices/spotify';
 import { formatLocalTrack, normalizeMediaUrl } from '../utils';
+import { sortTracksByLatestDownload } from './artist';
 
 const audioElement = new Audio();
 let currentQueue: any[] = [];
@@ -267,7 +268,8 @@ const startPlayback = async (
     } else if (uri.includes('artist')) {
       const artistId = uri.split(':').pop() || '';
       const res = await axios.get(`/api/artists/${artistId}/audios/`).catch(() => ({ data: [] }));
-      fetchedTracks = (res.data || []).map(formatLocalTrack);
+      const rawTracks = (res.data || []).map(formatLocalTrack).filter(Boolean);
+      fetchedTracks = sortTracksByLatestDownload(rawTracks);
     } else if (uri.includes('album')) {
       const albumId = uri.split(':').pop() || '';
       const res = await axios.get('/api/tracks/').catch(() => ({ data: [] }));
@@ -296,8 +298,13 @@ const startPlayback = async (
   if (body.uris && body.uris.length > 0) {
     const rawAllTracks = await axios.get('/api/tracks/').catch(() => ({ data: [] }));
     const allTracks = (rawAllTracks.data || []).map(formatLocalTrack);
-    const targetUris = body.uris.map((u) => u.replace(/^spotify:track:/, ''));
-    const matched = allTracks.filter((t: any) => targetUris.includes(String(t.id)) || body.uris!.includes(t.uri));
+    // Preserve the exact order specified in body.uris
+    const matched = body.uris
+      .map((u) => {
+        const id = u.replace(/^spotify:track:/, '');
+        return allTracks.find((t: any) => String(t.id) === id || t.uri === u);
+      })
+      .filter(Boolean);
 
     if (matched.length > 0) {
       currentQueue = matched;

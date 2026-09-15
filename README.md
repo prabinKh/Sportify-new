@@ -25,10 +25,72 @@
   - [Prerequisites](#prerequisites)
   - [Backend Setup (Django API)](#1-backend-setup-django-youtube-audio-api)
   - [Frontend Setup (React + Vite)](#2-frontend-setup-react-19--vite)
+- [🏠 LAN Jam Session (Friends on Same WiFi)](#-lan-jam-session-friends-on-same-wifi)
 - [How to Use the Application](#-how-to-use-the-application)
 - [API Architecture](#-api-architecture)
 - [Contributing](#-contributing)
 - [License](#-license)
+
+---
+
+## 🏠 LAN Jam Session (Friends on Same WiFi)
+
+> **No internet required for audio!** When your friends are all on the same home WiFi, you can run everything directly from your laptop and they connect via your local IP. Audio loads fast because it travels over LAN, not the internet.
+
+### 🚀 One-Command Start
+
+```bash
+# From the project root:
+./start_lan.sh
+# OR:
+npm run lan
+```
+
+This script automatically:
+1. Detects your WiFi IP (e.g. `192.168.1.23`)
+2. Updates `.env` with the correct IP
+3. Starts the Django backend on `0.0.0.0:8000`
+4. Starts the Vite frontend on your LAN IP
+5. Prints the URL your friends need to open + a QR code (if `qrencode` is installed)
+
+### 📱 Friends Join Like This
+
+| Step | Action |
+|------|--------|
+| 1 | Make sure everyone is on **the same WiFi network** as your laptop |
+| 2 | You run `./start_lan.sh` on your laptop |
+| 3 | Script prints a URL like `http://192.168.1.23:3000` |
+| 4 | Friends open that URL in their phone/laptop browser |
+| 5 | Create or join a Room → select a song → everyone buffers → Play! |
+
+### 🔊 How Volume Control Works
+
+- The **host's volume slider** broadcasts a suggested volume to all listeners via WebSocket
+- Each listener's in-app `<audio>` element volume is updated instantly
+- ⚠️ This only controls the **in-app player volume**, not the device/OS volume — friends can still turn their own phone volume up/down with hardware buttons
+
+### 🌐 Find Your LAN IP Manually
+
+If the script can't auto-detect your IP:
+
+```bash
+# Mac:
+ipconfig getifaddr en0   # WiFi
+ipconfig getifaddr en1   # Ethernet
+
+# Linux:
+ip addr show | grep "inet " | grep -v 127.0.0.1
+
+# Windows (run in CMD):
+ipconfig | findstr "IPv4"
+```
+
+### ⚠️ Important Notes
+
+- **Keep your laptop on and awake** — it's the server for the whole session
+- **Firewall**: macOS may prompt to allow incoming connections on ports 3000 and 8000 — click Allow
+- **IP may change**: Router DHCP can reassign your IP after a router restart. For a permanent fix, set a **static/reserved IP** for your laptop in your router's DHCP settings
+- This works **only on the same WiFi**. For friends on different networks, use the public domain URL instead
 
 ---
 

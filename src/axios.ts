@@ -3,9 +3,36 @@ import { getRefreshToken } from './utils/spotify/login';
 import { getFromLocalStorageWithExpiry } from './utils/localstorage';
 import { cacheGet, cacheSet } from './utils/cache';
 
-export const API_BASE_URL =
-  (import.meta.env.VITE_API_BASE_URL as string)?.replace(/\/+$/, '') ||
-  'https://b5szs4k9-8000.inc1.devtunnels.ms';
+const resolveApiBaseUrl = (): string => {
+  // If running in a browser, dynamically match the host the client used to connect (LAN IP or localhost)
+  if (typeof window !== 'undefined' && window.location.hostname) {
+    const browserHost = window.location.hostname;
+    const isLocalOrLan =
+      browserHost === 'localhost' ||
+      browserHost === '127.0.0.1' ||
+      /^192\.168\./.test(browserHost) ||
+      /^10\./.test(browserHost) ||
+      /^172\.(1[6-9]|2\d|3[0-1])\./.test(browserHost);
+
+    if (isLocalOrLan) {
+      return `${window.location.protocol}//${browserHost}:8000`;
+    }
+  }
+
+  const envUrl = (import.meta.env.VITE_API_BASE_URL as string)?.trim();
+  if (envUrl) {
+    return /^https?:\/\//i.test(envUrl) ? envUrl : `http://${envUrl}`;
+  }
+
+  const localIp = (import.meta.env.VITE_LOCAL_IP as string)?.trim();
+  if (localIp) {
+    return /^https?:\/\//i.test(localIp) ? localIp : `http://${localIp}:8000`;
+  }
+
+  return 'http://localhost:8000';
+};
+
+export const API_BASE_URL = resolveApiBaseUrl().replace(/\/+$/, '');
 
 const path = API_BASE_URL;
 

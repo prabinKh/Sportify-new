@@ -5,6 +5,7 @@ import { Col, Row } from 'antd';
 
 // Redux
 import { useAppSelector } from '../../../../store/store';
+import { sortTracksByLatestDownload } from '../../../../services/artist';
 
 // Utils
 import { useTranslation } from 'react-i18next';
@@ -14,12 +15,16 @@ export const ArtistTopTracks = memo(() => {
   const [showAll, setShowAll] = useState(false);
   const topSongs = useAppSelector((state) => state.artist.topTracks);
 
+  const sortedSongs = useMemo(() => {
+    return sortTracksByLatestDownload(topSongs);
+  }, [topSongs]);
+
   const items = useMemo(() => {
     if (showAll) {
-      return topSongs;
+      return sortedSongs;
     }
-    return topSongs.slice(0, 5);
-  }, [showAll, topSongs]);
+    return sortedSongs.slice(0, 5);
+  }, [showAll, sortedSongs]);
 
   if (!topSongs.length) {
     return null;

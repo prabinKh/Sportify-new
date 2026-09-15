@@ -4,7 +4,10 @@ import axios from 'axios';
 
 /* eslint-disable import/no-anonymous-default-export */
 const client_id = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
-const redirect_uri = import.meta.env.VITE_SPOTIFY_REDIRECT_URL;
+const rawRedirect =
+  (import.meta.env.VITE_SPOTIFY_REDIRECT_URL as string)?.trim() ||
+  (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
+const redirect_uri = /^https?:\/\//i.test(rawRedirect) ? rawRedirect : `http://${rawRedirect}`;
 
 const authUrl = new URL('https://accounts.spotify.com/authorize');
 

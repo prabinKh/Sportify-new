@@ -1,4 +1,5 @@
 import re
+from django.db.models import F
 from rest_framework import serializers
 from .models import MediaFile, YouTubeChannel, Playlist, FavoriteTrack, ListeningHistory, FollowedArtist
 
@@ -85,7 +86,7 @@ class ArtistAudioSerializer(serializers.ModelSerializer):
         model = MediaFile
         fields = [
             'id', 'media_url', 'audio_file', 'thumbnail',
-            'duration_seconds', 'downloaded_at', 'title', 'video_id',
+            'duration_seconds', 'downloaded_at', 'created_at', 'title', 'video_id',
         ]
 
     def get_audio_file(self, obj):
@@ -121,7 +122,13 @@ class ArtistSerializer(serializers.ModelSerializer):
         return None
 
     def get_audio_files(self, obj):
-        audios = MediaFile.objects.filter(youtube_channel=obj).filter(audio_file__isnull=False).exclude(audio_file='')
+        audios = (
+            MediaFile.objects
+            .filter(youtube_channel=obj)
+            .filter(audio_file__isnull=False)
+            .exclude(audio_file='')
+            .order_by(F('downloaded_at').desc(nulls_last=True), '-created_at', '-id')
+        )
         return ArtistAudioSerializer(audios, many=True, context=self.context).data
 
     def get_playlists(self, obj):
@@ -142,7 +149,7 @@ class LocalTrackSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'media_url', 'title', 'video_id',
             'audio_file', 'thumbnail', 'duration_seconds',
-            'downloaded_at', 'artist_id', 'artist_name', 'artist_picture',
+            'downloaded_at', 'created_at', 'artist_id', 'artist_name', 'artist_picture',
         ]
 
     def get_audio_file(self, obj):

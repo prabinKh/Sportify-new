@@ -14,9 +14,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDebounce } from 'use-debounce';
 
-// Redux
 import { useAppDispatch, useAppSelector } from '../../../../store/store';
 import { searchHistoryActions } from '../../../../store/slices/searchHistory';
+import { playerService } from '../../../../services/player';
 
 const INITIAL_VALUE = window.location.href.includes('/search/')
   ? decodeURIComponent(window.location.href.split('/').reverse()[0])
@@ -145,7 +145,9 @@ export const Search = memo(({ hideHomeButton = false }: SearchProps) => {
         navigate(`/artist/${entry.artist.id}`);
       } else {
         dispatch(searchHistoryActions.setItem(entry.track));
-        navigate(`/album/${entry.track.album.id}`);
+        playerService.startPlayback({ track: entry.track, uris: [entry.track.uri] });
+        const artistId = entry.track.artists?.[0]?.id;
+        navigate(artistId ? `/artist/${artistId}` : `/album/${entry.track.album.id}`);
       }
       setDropdownOpen(false);
       setActiveIndex(-1);

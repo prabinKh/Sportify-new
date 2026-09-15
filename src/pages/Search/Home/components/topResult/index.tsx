@@ -93,6 +93,8 @@ const Card = memo(
 const TrackCard = memo(({ item }: { item: Track }) => {
   const { t } = useTranslation(['search']);
   const user = useAppSelector((state) => !!state.auth.user);
+  const artistId = item.artists?.[0]?.id;
+  const targetLink = artistId ? `/artist/${artistId}` : (user ? `/album/${item.album.id}` : '/');
 
   return (
     <TrackActionsWrapper trigger={['contextMenu']} track={item}>
@@ -102,7 +104,10 @@ const TrackCard = memo(({ item }: { item: Track }) => {
           title={item.name}
           context={{ uris: [item.uri] }}
           image={item.album.images[0].url}
-          link={user ? `/album/${item.album.id}` : '/'}
+          link={targetLink}
+          onClick={() => {
+            playerService.startPlayback({ track: item, uris: [item.uri] });
+          }}
           description={
             <p
               key={item.id}

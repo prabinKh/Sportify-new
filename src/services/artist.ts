@@ -13,12 +13,29 @@ const fetchArtists = async (ids: string[]) => {
   return { data: { artists: filtered } };
 };
 
+export const sortTracksByLatestDownload = (tracks: any[]): any[] => {
+  return [...tracks].sort((a: any, b: any) => {
+    const rawTimeA = a?.downloaded_at || a?.created_at;
+    const rawTimeB = b?.downloaded_at || b?.created_at;
+    const timeA = rawTimeA ? new Date(rawTimeA).getTime() : 0;
+    const timeB = rawTimeB ? new Date(rawTimeB).getTime() : 0;
+    const validTimeA = isNaN(timeA) ? 0 : timeA;
+    const validTimeB = isNaN(timeB) ? 0 : timeB;
+
+    if (validTimeB !== validTimeA) {
+      return validTimeB - validTimeA;
+    }
+    return (Number(b?.id) || 0) - (Number(a?.id) || 0);
+  });
+};
+
 const fetchArtistAlbums = async (
   id: string,
   _params: any = {}
 ) => {
   const res = await axios.get(`/api/artists/${id}/audios/`);
-  const tracks = (res.data || []).map(formatLocalTrack);
+  const rawTracks = (res.data || []).map(formatLocalTrack).filter(Boolean);
+  const tracks = sortTracksByLatestDownload(rawTracks);
   const mockAlbum = {
     id: `album_${id}`,
     name: 'Downloaded Audios',
@@ -42,7 +59,8 @@ const fetchArtistAlbums = async (
 
 const fetchArtistTopTracks = async (id: string) => {
   const res = await axios.get(`/api/artists/${id}/audios/`);
-  const tracks = (res.data || []).map(formatLocalTrack);
+  const rawTracks = (res.data || []).map(formatLocalTrack).filter(Boolean);
+  const tracks = sortTracksByLatestDownload(rawTracks);
   return { data: { tracks } };
 };
 

@@ -38,7 +38,8 @@ const getItemPath = (item: HistoryItem) => {
   if (item.type === 'artist') return `/artist/${item.id}`;
   if (item.type === 'album') return `/album/${item.id}`;
   if (item.type === 'playlist') return `/playlist/${item.id}`;
-  return `/album/${item.album.id}`;
+  const artistId = item.artists?.[0]?.id;
+  return artistId ? `/artist/${artistId}` : `/album/${item.album.id}`;
 };
 
 const getPlayContext = (item: HistoryItem) => {
@@ -152,6 +153,9 @@ export const RecentSearchesDropdown = memo(({ onNavigate }: { onNavigate?: () =>
   const onSelect = useCallback(
     (item: HistoryItem) => {
       dispatch(searchHistoryActions.setItem(item));
+      if (item.type === 'track') {
+        playerService.startPlayback({ track: item, uris: [item.uri] });
+      }
       navigate(getItemPath(item));
       onNavigate?.();
     },

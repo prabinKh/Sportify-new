@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 // Components
 import SongView, { SongViewComponents } from '../../../../../components/SongsTable/songView';
@@ -6,6 +7,7 @@ import SongView, { SongViewComponents } from '../../../../../components/SongsTab
 // Redux
 import { searchActions } from '../../../../../store/slices/search';
 import { useAppDispatch, useAppSelector } from '../../../../../store/store';
+import { playerService } from '../../../../../services/player';
 
 // Interface
 import type { TrackWithSave } from '../../../../../interfaces/track';
@@ -17,6 +19,7 @@ interface SongProps {
 
 export const Song = (props: SongProps) => {
   const { song } = props;
+  const navigate = useNavigate();
 
   const dispatch = useAppDispatch();
   const songs = useAppSelector((state) => state.search.songs);
@@ -30,6 +33,16 @@ export const Song = (props: SongProps) => {
     return songs.slice(index).map((r) => r.uri);
   }, [songs, song.uri]);
 
+  const handleRowClick = useCallback(() => {
+    playerService.startPlayback({ track: song, uris });
+    const artistId = song.artists?.[0]?.id;
+    if (artistId) {
+      navigate(`/artist/${artistId}`);
+    } else if (song.album?.id) {
+      navigate(`/album/${song.album.id}`);
+    }
+  }, [song, uris, navigate]);
+
   return (
     <SongView
       activable
@@ -39,6 +52,7 @@ export const Song = (props: SongProps) => {
       context={{ uris }}
       saved={song.saved}
       onToggleLike={toggleLike}
+      onRowClick={handleRowClick}
       fields={[
         SongViewComponents.ClickeableCover,
         SongViewComponents.Title,

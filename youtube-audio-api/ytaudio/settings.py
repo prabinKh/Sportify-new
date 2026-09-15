@@ -11,9 +11,33 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 import os
 from pathlib import Path
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables from .env without external dependencies
+def _load_env(path):
+    if not os.path.exists(path):
+        return
+    try:
+        with open(path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#') or '=' not in line:
+                    continue
+                k, v = line.split('=', 1)
+                k = k.strip()
+                v = v.strip()
+                if (v.startswith('"') and v.endswith('"')) or (v.startswith("'") and v.endswith("'")):
+                    v = v[1:-1]
+                if k not in os.environ:
+                    os.environ[k] = v
+    except Exception:
+        pass
+
+_load_env(BASE_DIR.parent / '.env')
+_load_env(BASE_DIR / '.env')
+
+LOCAL_IP = os.getenv('LOCAL_IP') or os.getenv('VITE_LOCAL_IP') or '127.0.0.1'
 
 
 # Quick-start development settings - unsuitable for production
@@ -173,13 +197,27 @@ LOGOUT_REDIRECT_URL = 'login'
 # ── CORS (Cross-Origin Resource Sharing) ────────────────────────────────────
 # Allow the React dev server to call the Django API with cookies.
 CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+
+# Allow any local network IP origin matching 192.168.*.* or 10.*.*.*
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^http://127\.0\.0\.1:\d+$",
+    r"^http://localhost:\d+$",
+    r"^http://192\.168\.\d+\.\d+(:\d+)?$",
+    r"^http://10\.\d+\.\d+\.\d+(:\d+)?$",
+]
+
 CORS_ALLOWED_ORIGINS = [
     'http://127.0.0.1:3000',
     'http://localhost:3000',
     'http://127.0.0.1:5173',
     'http://localhost:5173',
 ]
-CORS_ALLOW_CREDENTIALS = True
+if LOCAL_IP and LOCAL_IP not in ('127.0.0.1', 'localhost'):
+    for port in ('3000', '5173', '8000'):
+        url = f'http://{LOCAL_IP}:{port}'
+        if url not in CORS_ALLOWED_ORIGINS:
+            CORS_ALLOWED_ORIGINS.append(url)
 
 # Session cookie settings for cross-origin requests (local dev only)
 SESSION_COOKIE_SAMESITE = 'Lax'
@@ -194,3 +232,9 @@ CSRF_TRUSTED_ORIGINS = [
     'https://*.devtunnels.ms',
     'http://*.devtunnels.ms',
 ]
+if LOCAL_IP and LOCAL_IP not in ('127.0.0.1', 'localhost'):
+    for port in ('3000', '5173', '8000'):
+        url = f'http://{LOCAL_IP}:{port}'
+        if url not in CSRF_TRUSTED_ORIGINS:
+            CSRF_TRUSTED_ORIGINS.append(url)
+

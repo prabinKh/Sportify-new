@@ -1,6 +1,6 @@
 import { api, runQuery } from '../api';
 
-import { artistService } from '../../services/artist';
+import { artistService, sortTracksByLatestDownload } from '../../services/artist';
 import { userService } from '../../services/users';
 import { albumsService } from '../../services/albums';
 import { playlistService } from '../../services/playlists';
@@ -55,7 +55,7 @@ const catalogApi = api.injectEndpoints({
             data: {
               artist: artistRes.data,
               following: (followingRes.data as boolean[])[0],
-              topTracks: tracks.map((t, i) => ({ ...t, saved: saved[i] })),
+              topTracks: sortTracksByLatestDownload(tracks.map((t, i) => ({ ...t, saved: saved[i] }))),
               albums: all.filter((a) => a.album_type === 'album'),
               singles: all.filter((a) => a.album_type === 'single'),
               compilations: all.filter((a) => a.album_type === 'compilation'),

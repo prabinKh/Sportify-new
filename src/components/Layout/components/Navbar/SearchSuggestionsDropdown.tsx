@@ -10,6 +10,7 @@ import { userService } from '../../../../services/users';
 import { searchHistoryActions } from '../../../../store/slices/searchHistory';
 import { useAppDispatch, useAppSelector } from '../../../../store/store';
 import { uiActions } from '../../../../store/slices/ui';
+import { playerService } from '../../../../services/player';
 
 import type { Artist } from '../../../../interfaces/artist';
 import type { Track } from '../../../../interfaces/track';
@@ -119,11 +120,11 @@ export const SearchSuggestionsDropdown = memo(
 
           if (user && nextArtists.length) {
             try {
-              const followRes = await userService.checkFollowingArtists(nextArtists.map((a) => a.id));
+              const followRes = await userService.checkFollowingArtists(nextArtists.map((a: any) => a.id));
               if (!cancelled) {
                 setFollowed((prev) => {
                   const map: Record<string, boolean> = {};
-                  nextArtists.forEach((artist, index) => {
+                  nextArtists.forEach((artist: any, index: number) => {
                     if (artist.id in followOverridesRef.current) {
                       map[artist.id] = followOverridesRef.current[artist.id];
                     } else if (artist.id in prev) {
@@ -142,11 +143,11 @@ export const SearchSuggestionsDropdown = memo(
 
           if (user && nextTracks.length) {
             try {
-              const savedRes = await userService.checkSavedTracks(nextTracks.map((track) => track.id));
+              const savedRes = await userService.checkSavedTracks(nextTracks.map((track: any) => track.id));
               if (!cancelled) {
                 setSaved((prev) => {
                   const map: Record<string, boolean> = {};
-                  nextTracks.forEach((track, index) => {
+                  nextTracks.forEach((track: any, index: number) => {
                     if (track.id in savedOverridesRef.current) {
                       map[track.id] = savedOverridesRef.current[track.id];
                     } else if (track.id in prev) {
@@ -225,7 +226,9 @@ export const SearchSuggestionsDropdown = memo(
 
     const openTrack = (track: Track) => {
       dispatch(searchHistoryActions.setItem(track));
-      navigate(`/album/${track.album.id}`);
+      playerService.startPlayback({ track, uris: [track.uri] });
+      const artistId = track.artists?.[0]?.id;
+      navigate(artistId ? `/artist/${artistId}` : `/album/${track.album.id}`);
       onClose();
     };
 
