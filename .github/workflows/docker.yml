@@ -195,11 +195,29 @@ jobs:
               fi
             }
 
+            # Prefer IPv4 over IPv6 to prevent ghcr.io IPv6 connection reset on VPS
+            if [ -f /etc/gai.conf ] && ! grep -q "^precedence ::ffff:0:0/96  100" /etc/gai.conf; then
+              echo "$SSH_PASS" | sudo -S sed -i 's/#precedence ::ffff:0:0\/96  100/precedence ::ffff:0:0\/96  100/' /etc/gai.conf 2>/dev/null || true
+            fi
+
             echo "Logging in to GHCR..."
             run_docker login ghcr.io -u "$GHCR_USER" -p "$GHCR_TOKEN"
 
-            echo "Pulling Spotify images..."
-            run_docker compose -p spotify pull
+            echo "Pulling Spotify images with auto-retry..."
+            PULL_SUCCESS=false
+            for attempt in 1 2 3 4 5; do
+              if run_docker compose -p spotify pull; then
+                PULL_SUCCESS=true
+                break
+              fi
+              echo "Pull attempt $attempt failed (network reset). Retrying in 5s..."
+              sleep 5
+            done
+
+            if [ "$PULL_SUCCESS" != "true" ]; then
+              echo "Error: Failed to pull images after 5 attempts."
+              exit 1
+            fi
 
             echo "Starting Spotify containers on ports: Frontend=$WEB_PORT, Backend=$API_PORT..."
             run_docker compose -p spotify up -d --remove-orphans
