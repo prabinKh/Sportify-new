@@ -77,6 +77,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -162,11 +163,12 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# Ensure this points to the correct directory
 STATICFILES_DIRS = [
-    BASE_DIR / "static",  # or the absolute path to your static directory
+    BASE_DIR / "static",
 ]
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 # Media files (user uploads like audio)
 MEDIA_URL = '/media/'
@@ -221,24 +223,60 @@ if LOCAL_IP and LOCAL_IP not in ('127.0.0.1', 'localhost'):
         if url not in CORS_ALLOWED_ORIGINS:
             CORS_ALLOWED_ORIGINS.append(url)
 
-# Session cookie settings for cross-origin requests (local dev only)
+# Session and CSRF cookie settings
 SESSION_COOKIE_SAMESITE = 'Lax'
-SESSION_COOKIE_SECURE = False  # False so cookies work over plain HTTP in dev
+SESSION_COOKIE_SECURE = False  # False so cookies work over plain HTTP in dev/vps
+CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SECURE = False
 
-# CSRF trusted origins (needed for any POST from the React app)
+# CSRF trusted origins
 CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1:3000',
     'http://localhost:3000',
     'http://127.0.0.1:3004',
     'http://localhost:3004',
+    'http://127.0.0.1:8000',
+    'http://localhost:8000',
+    'http://127.0.0.1:8004',
+    'http://localhost:8004',
     'http://127.0.0.1:5173',
     'http://localhost:5173',
     'https://*.devtunnels.ms',
     'http://*.devtunnels.ms',
+    'http://144.91.72.44',
+    'http://144.91.72.44:8004',
+    'http://144.91.72.44:3004',
+    'http://144.91.72.44:8000',
+    'http://144.91.72.44:3000',
+    'https://144.91.72.44',
+    'https://144.91.72.44:8004',
+    'https://144.91.72.44:3004',
 ]
-if LOCAL_IP and LOCAL_IP not in ('127.0.0.1', 'localhost'):
+
+hosts_to_trust = [h for h in [
+    LOCAL_IP,
+    os.getenv('SERVER_HOST'),
+    os.getenv('HOST'),
+    os.getenv('SSH_HOST'),
+] if h and h not in ('127.0.0.1', 'localhost', '144.91.72.44')]
+
+for h in hosts_to_trust:
     for port in ('3000', '3004', '5173', '8000', '8004'):
-        url = f'http://{LOCAL_IP}:{port}'
-        if url not in CSRF_TRUSTED_ORIGINS:
-            CSRF_TRUSTED_ORIGINS.append(url)
+        for proto in ('http', 'https'):
+            origin = f'{proto}://{h}:{port}'
+            if origin not in CSRF_TRUSTED_ORIGINS:
+                CSRF_TRUSTED_ORIGINS.append(origin)
+            if origin not in CORS_ALLOWED_ORIGINS:
+                CORS_ALLOWED_ORIGINS.append(origin)
+    for proto in ('http', 'https'):
+        origin = f'{proto}://{h}'
+        if origin not in CSRF_TRUSTED_ORIGINS:
+            CSRF_TRUSTED_ORIGINS.append(origin)
+
+env_csrf = os.getenv('CSRF_TRUSTED_ORIGINS', '')
+if env_csrf:
+    for item in env_csrf.split(','):
+        item = item.strip()
+        if item and item not in CSRF_TRUSTED_ORIGINS:
+            CSRF_TRUSTED_ORIGINS.append(item)
 
