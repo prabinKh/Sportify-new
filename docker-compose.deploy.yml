@@ -4,7 +4,7 @@ services:
     restart: always
     container_name: spotify-web
     ports:
-      - 3000:80
+      - "${WEB_PORT:-3001}:80"
     depends_on:
       - api
 
@@ -13,7 +13,7 @@ services:
     restart: always
     container_name: spotify-api
     ports:
-      - 8000:8000
+      - "${API_PORT:-8001}:8000"
     volumes:
       - api-media:/app/media
 

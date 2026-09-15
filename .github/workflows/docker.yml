@@ -57,10 +57,10 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            VITE_SPOTIFY_CLIENT_ID=${{ secrets.VITE_SPOTIFY_CLIENT_ID }}
-            VITE_SPOTIFY_REDIRECT_URL=${{ secrets.VITE_SPOTIFY_REDIRECT_URL }}
-            VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
-            VITE_LOCAL_IP=${{ secrets.VITE_LOCAL_IP }}
+            VITE_SPOTIFY_CLIENT_ID=${{ vars.VITE_SPOTIFY_CLIENT_ID || secrets.VITE_SPOTIFY_CLIENT_ID }}
+            VITE_SPOTIFY_REDIRECT_URL=${{ vars.VITE_SPOTIFY_REDIRECT_URL || secrets.VITE_SPOTIFY_REDIRECT_URL }}
+            VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL || secrets.VITE_API_BASE_URL }}
+            VITE_LOCAL_IP=${{ vars.VITE_LOCAL_IP || secrets.VITE_LOCAL_IP }}
 
   backend:
     name: Build backend image
@@ -132,9 +132,15 @@ jobs:
           HOST: ${{ vars.SSH_HOST || secrets.SSH_HOST }}
           USER: ${{ vars.SSH_USER || secrets.SSH_USER }}
           PORT: ${{ vars.SSH_PORT || secrets.SSH_PORT }}
+          KEY: ${{ secrets.SSH_KEY }}
+          PASSWORD: ${{ secrets.SSH_PASSWORD }}
         run: |
           if [ -z "$HOST" ]; then
-            echo "::error::SSH_HOST is empty. Add it under Settings → Secrets and variables → Actions as a Variable or a Secret named SSH_HOST (repository level, not an Environment unless the job uses that environment)."
+            echo "::error::SSH_HOST is empty. Add it under Settings → Secrets and variables → Actions as a Variable or a Secret named SSH_HOST."
+            exit 1
+          fi
+          if [ -z "$KEY" ] && [ -z "$PASSWORD" ]; then
+            echo "::error::Neither SSH_KEY nor SSH_PASSWORD was found. Please add SSH_KEY (private key, recommended) or SSH_PASSWORD under Settings → Secrets and variables → Actions → Secrets."
             exit 1
           fi
           echo "host=$HOST" >> "$GITHUB_OUTPUT"
@@ -147,6 +153,8 @@ jobs:
           host: ${{ steps.ssh.outputs.host }}
           username: ${{ steps.ssh.outputs.user }}
           password: ${{ secrets.SSH_PASSWORD }}
+          key: ${{ secrets.SSH_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
           port: ${{ steps.ssh.outputs.port }}
           source: docker-compose.deploy.yml
           target: /opt/spotify
@@ -159,18 +167,28 @@ jobs:
           BACKEND_IMAGE: ${{ env.BACKEND_IMAGE }}
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WEB_PORT: ${{ vars.WEB_PORT || '3001' }}
+          API_PORT: ${{ vars.API_PORT || '8001' }}
         with:
           host: ${{ steps.ssh.outputs.host }}
           username: ${{ steps.ssh.outputs.user }}
           password: ${{ secrets.SSH_PASSWORD }}
+          key: ${{ secrets.SSH_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
           port: ${{ steps.ssh.outputs.port }}
           command_timeout: 10m
-          envs: FRONTEND_IMAGE,BACKEND_IMAGE,GHCR_USER,GHCR_TOKEN
+          envs: FRONTEND_IMAGE,BACKEND_IMAGE,GHCR_USER,GHCR_TOKEN,WEB_PORT,API_PORT
           script: |
             set -euo pipefail
             mkdir -p /opt/spotify
             cd /opt/spotify
             mv -f docker-compose.deploy.yml docker-compose.yml
+            cat <<EOF > .env
+            FRONTEND_IMAGE=${FRONTEND_IMAGE}
+            BACKEND_IMAGE=${BACKEND_IMAGE}
+            WEB_PORT=${WEB_PORT:-3001}
+            API_PORT=${API_PORT:-8001}
+            EOF
             echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
             docker compose pull
             docker compose up -d --remove-orphans
