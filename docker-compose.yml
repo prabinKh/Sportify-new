@@ -5,7 +5,24 @@ services:
       args:
         VITE_SPOTIFY_CLIENT_ID: ${VITE_SPOTIFY_CLIENT_ID}
         VITE_SPOTIFY_REDIRECT_URL: ${VITE_SPOTIFY_REDIRECT_URL}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+        VITE_LOCAL_IP: ${VITE_LOCAL_IP}
     restart: always
     container_name: 'spotify-web'
     ports:
       - 3000:80
+    depends_on:
+      - api
+
+  api:
+    build:
+      context: ./youtube-audio-api
+    restart: always
+    container_name: 'spotify-api'
+    ports:
+      - 8000:8000
+    volumes:
+      - api-media:/app/media
+
+volumes:
+  api-media:

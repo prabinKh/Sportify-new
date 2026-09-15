@@ -1,0 +1,21 @@
+services:
+  web:
+    image: ${FRONTEND_IMAGE}
+    restart: always
+    container_name: spotify-web
+    ports:
+      - 3000:80
+    depends_on:
+      - api
+
+  api:
+    image: ${BACKEND_IMAGE}
+    restart: always
+    container_name: spotify-api
+    ports:
+      - 8000:8000
+    volumes:
+      - api-media:/app/media
+
+volumes:
+  api-media:

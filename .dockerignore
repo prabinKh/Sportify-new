@@ -3,6 +3,7 @@ build
 dist
 .git
 .github
+youtube-audio-api
 .env
 .env.*
 !.env.dist
