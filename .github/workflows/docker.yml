@@ -116,10 +116,6 @@ jobs:
     permissions:
       contents: read
       packages: read
-    env:
-      SSH_HOST: ${{ vars.SSH_HOST || secrets.SSH_HOST }}
-      SSH_USER: ${{ vars.SSH_USER || secrets.SSH_USER || 'root' }}
-      SSH_PORT: ${{ vars.SSH_PORT || secrets.SSH_PORT || 22 }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -130,20 +126,28 @@ jobs:
           echo "FRONTEND_IMAGE=ghcr.io/${prefix}/frontend:latest" >> "$GITHUB_ENV"
           echo "BACKEND_IMAGE=ghcr.io/${prefix}/backend:latest" >> "$GITHUB_ENV"
 
-      - name: Verify SSH host is set
+      - name: Resolve SSH connection
+        id: ssh
+        env:
+          HOST: ${{ vars.SSH_HOST || secrets.SSH_HOST }}
+          USER: ${{ vars.SSH_USER || secrets.SSH_USER }}
+          PORT: ${{ vars.SSH_PORT || secrets.SSH_PORT }}
         run: |
-          if [ -z "$SSH_HOST" ]; then
-            echo "::error::SSH_HOST is empty. Add SSH_HOST as a repository Variable or Secret under Settings → Secrets and variables → Actions (not an Environment unless this job sets environment:)."
+          if [ -z "$HOST" ]; then
+            echo "::error::SSH_HOST is empty. Add it under Settings → Secrets and variables → Actions as a Variable or a Secret named SSH_HOST (repository level, not an Environment unless the job uses that environment)."
             exit 1
           fi
+          echo "host=$HOST" >> "$GITHUB_OUTPUT"
+          echo "user=${USER:-root}" >> "$GITHUB_OUTPUT"
+          echo "port=${PORT:-22}" >> "$GITHUB_OUTPUT"
 
       - name: Copy compose file to host
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ env.SSH_HOST }}
-          username: ${{ env.SSH_USER }}
+          host: ${{ steps.ssh.outputs.host }}
+          username: ${{ steps.ssh.outputs.user }}
           password: ${{ secrets.SSH_PASSWORD }}
-          port: ${{ env.SSH_PORT }}
+          port: ${{ steps.ssh.outputs.port }}
           source: docker-compose.deploy.yml
           target: /opt/spotify
           overwrite: true
@@ -156,10 +160,10 @@ jobs:
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          host: ${{ env.SSH_HOST }}
-          username: ${{ env.SSH_USER }}
+          host: ${{ steps.ssh.outputs.host }}
+          username: ${{ steps.ssh.outputs.user }}
           password: ${{ secrets.SSH_PASSWORD }}
-          port: ${{ env.SSH_PORT }}
+          port: ${{ steps.ssh.outputs.port }}
           command_timeout: 10m
           envs: FRONTEND_IMAGE,BACKEND_IMAGE,GHCR_USER,GHCR_TOKEN
           script: |
