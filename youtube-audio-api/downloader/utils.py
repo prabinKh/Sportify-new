@@ -29,15 +29,26 @@ RSS_NS = {
 
 
 def get_ytdlp_command():
-    """Build a yt-dlp command that works without global installs."""
-    try:
-        import imageio_ffmpeg
-        ffmpeg_path = imageio_ffmpeg.get_ffmpeg_exe()
-    except Exception:
-        ffmpeg_path = None
+    """Build a yt-dlp command that works reliably on both local and server environments."""
+    ffmpeg_path = shutil.which("ffmpeg")
+    if not ffmpeg_path:
+        try:
+            import imageio_ffmpeg
+            candidate = imageio_ffmpeg.get_ffmpeg_exe()
+            if candidate and os.path.exists(candidate):
+                ffmpeg_path = candidate
+        except Exception:
+            ffmpeg_path = None
 
-    command = [sys.executable, "-m", "yt_dlp"]
-    if ffmpeg_path:
+    command = [
+        sys.executable, "-m", "yt_dlp",
+        "--force-ipv4",
+        "--no-check-certificates",
+        "--geo-bypass",
+        "--extractor-args", "youtube:player_client=android,web;player_skip=webpage,configs",
+        "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    ]
+    if ffmpeg_path and os.path.exists(ffmpeg_path):
         command += ["--ffmpeg-location", ffmpeg_path]
     return command
 
@@ -544,28 +555,54 @@ def _process_media(media):
 
         command = command_prefix + [
             "-x",
-            "--audio-format",
-            "mp3",
-            "--audio-quality",
-            "0",
+            "--audio-format", "mp3",
+            "--audio-quality", "0",
             "--no-playlist",
-            "--output",
-            output_template,
+            "--output", output_template,
             normalized_url,
         ]
 
-        result = subprocess.run(command, check=True, capture_output=True, text=True)
+        try:
+            subprocess.run(command, check=True, capture_output=True, text=True)
+        except subprocess.CalledProcessError as err:
+            print(f"[WARN] yt-dlp mp3 extraction error for {normalized_url}: {err}")
+            if err.stderr:
+                print(f"[WARN] stderr: {err.stderr[-1000:]}")
+            # Fallback attempt: bestaudio with loose format constraints
+            fallback_cmd = command_prefix + [
+                "-f", "bestaudio/best",
+                "-x",
+                "--audio-format", "mp3",
+                "--no-playlist",
+                "--output", output_template,
+                normalized_url,
+            ]
+            try:
+                subprocess.run(fallback_cmd, check=True, capture_output=True, text=True)
+            except Exception as fe:
+                print(f"[ERROR] yt-dlp fallback download also failed for {normalized_url}: {fe}")
 
+        actual_file = None
         if os.path.exists(downloaded_path):
-            with open(downloaded_path, "rb") as audio_file:
-                media.audio_file.save(f"{filename}.mp3", File(audio_file), save=False)
+            actual_file = downloaded_path
+        else:
+            candidates = [
+                f for f in glob.glob(os.path.join(temp_dir, f"{filename}.*"))
+                if os.path.isfile(f) and not f.endswith(('.json', '.part', '.ytdl', '.temp'))
+            ]
+            if candidates:
+                candidates.sort(key=lambda c: (not c.endswith('.mp3'), not c.endswith('.m4a'), not c.endswith('.opus')))
+                actual_file = candidates[0]
+
+        if actual_file and os.path.exists(actual_file):
+            ext = os.path.splitext(actual_file)[1].lstrip('.') or 'mp3'
+            with open(actual_file, "rb") as audio_file:
+                media.audio_file.save(f"{filename}.{ext}", File(audio_file), save=False)
                 media.downloaded_at = timezone.now()
                 media.save()
-            print(f"[OK] Downloaded ({media.duration_seconds}s): {media.media_url}")
+            print(f"[OK] Downloaded and saved ({media.duration_seconds}s): {media.media_url} -> {media.audio_file.name}")
         else:
-            print(f"[ERROR] Audio file not found at {downloaded_path}")
-            print(result.stdout[-2000:])
-            print(result.stderr[-2000:])
+            print(f"[ERROR] No audio file produced for {media.media_url}")
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
 

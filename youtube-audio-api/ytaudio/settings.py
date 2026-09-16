@@ -121,12 +121,34 @@ CHANNEL_LAYERS = {
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+DB_DIR = BASE_DIR / 'database'
+if not DB_DIR.exists():
+    try:
+        DB_DIR.mkdir(exist_ok=True)
+    except Exception:
+        pass
+
+if DB_DIR.exists() and os.access(DB_DIR, os.W_OK):
+    DB_FILE = DB_DIR / 'db.sqlite3'
+    if (BASE_DIR / 'db.sqlite3').exists() and not DB_FILE.exists():
+        try:
+            import shutil
+            shutil.copy2(BASE_DIR / 'db.sqlite3', DB_FILE)
+        except Exception:
+            pass
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': DB_FILE if (DB_FILE.exists() or os.access(DB_DIR, os.W_OK)) else BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -223,11 +245,16 @@ if LOCAL_IP and LOCAL_IP not in ('127.0.0.1', 'localhost'):
         if url not in CORS_ALLOWED_ORIGINS:
             CORS_ALLOWED_ORIGINS.append(url)
 
-# Session and CSRF cookie settings
+# Session and CSRF cookie settings (unique names prevent clash with other apps like algoflow on 144.91.72.44)
+SESSION_COOKIE_NAME = 'sportify_sessionid'
+CSRF_COOKIE_NAME = 'sportify_csrftoken'
 SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_SECURE = False  # False so cookies work over plain HTTP in dev/vps
 CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SECURE = False
+SESSION_SAVE_EVERY_REQUEST = True
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+SESSION_COOKIE_AGE = 2592000  # 30 days session validity
 
 # CSRF trusted origins
 CSRF_TRUSTED_ORIGINS = [

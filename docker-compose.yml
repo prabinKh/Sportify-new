@@ -23,6 +23,8 @@ services:
       - "${API_PORT:-8004}:8000"
     volumes:
       - spotify-media:/app/media
+      - spotify-db:/app/database
 
 volumes:
   spotify-media:
+  spotify-db:

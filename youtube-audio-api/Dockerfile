@@ -14,8 +14,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
-RUN mkdir -p static media staticfiles && python manage.py collectstatic --noinput || true
+RUN mkdir -p static media staticfiles database && python manage.py collectstatic --noinput || true
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py collectstatic --noinput && daphne -b 0.0.0.0 -p 8000 ytaudio.asgi:application"]
+CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py collectstatic --noinput && (python manage.py process_tasks &) && (python manage.py retry_downloads &) && daphne -b 0.0.0.0 -p 8000 ytaudio.asgi:application"]
