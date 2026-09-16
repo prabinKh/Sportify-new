@@ -28,10 +28,10 @@ class MediaFile(models.Model):
 
     @property
     def is_downloadable(self):
-        """Only audio between 2 and 10 minutes gets downloaded (>= 120s and < 600s)."""
+        """Allow any track with valid duration between 5 seconds and 2 hours."""
         if self.duration_seconds is None:
-            return False
-        return 120 <= self.duration_seconds < 600
+            return True
+        return 5 <= self.duration_seconds < 7200
 
 
 class Playlist(models.Model):

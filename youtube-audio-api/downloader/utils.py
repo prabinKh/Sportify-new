@@ -18,8 +18,8 @@ from django.utils.text import slugify
 
 from .models import YouTubeChannel, MediaFile, Playlist
 
-MIN_DURATION_SECONDS = 120      # Skip audio shorter than 2 minutes (< 120s)
-MAX_DURATION_SECONDS = 600      # Skip audio 10 minutes or longer (>= 600s)
+MIN_DURATION_SECONDS = 5        # Skip audio shorter than 5 seconds
+MAX_DURATION_SECONDS = 7200     # Allow audio up to 2 hours
 
 RSS_NS = {
     "atom": "http://www.w3.org/2005/Atom",
@@ -117,14 +117,20 @@ def _fetch_channel_feed(channel):
 
 
 def _extract_video_urls(root):
-    """Pull all media urls out of an RSS feed document."""
+    """Pull all media urls out of an RSS feed document and normalize them."""
     urls = []
     for entry in root.findall("atom:entry", RSS_NS):
         media_content = entry.find("media:group/media:content", RSS_NS)
         if media_content is not None:
             url = media_content.attrib.get("url")
             if url:
-                urls.append(url)
+                urls.append(normalize_youtube_url(url))
+        else:
+            link = entry.find("atom:link", RSS_NS)
+            if link is not None:
+                href = link.attrib.get("href")
+                if href:
+                    urls.append(normalize_youtube_url(href))
     return urls
 
 
@@ -520,30 +526,54 @@ def _process_media(media):
     media.save()
 
 
-    # Save the video thumbnail if we don't have one yet.
-    if thumb_url and not media.thumbnail:
-        try:
-            resp = requests.get(thumb_url, timeout=15)
-            resp.raise_for_status()
-            ext = "jpg"
-            ct = resp.headers.get("Content-Type", "")
-            if "png" in ct:
-                ext = "png"
-            from io import BytesIO
-            media.thumbnail.save(f"{filename}.{ext}", File(BytesIO(resp.content)), save=False)
-            media.save(update_fields=["thumbnail"])
-            print(f"[OK] Thumbnail saved for: {media.media_url}")
-        except Exception as e:
-            print(f"[ERROR] Thumbnail download failed for {media.media_url}: {e}")
+    # Normalize media_url on existing record if it is in old /v/ format
+    if normalized_url != media.media_url and not MediaFile.objects.filter(media_url=normalized_url).exclude(id=media.id).exists():
+        media.media_url = normalized_url
+        media.save(update_fields=["media_url"])
 
-    if media.duration_seconds is None:
-        print(f"[SKIP] Could not determine duration (live/unfinished?): {media.media_url}")
+    # Save the video thumbnail if we don't have one yet.
+    if not media.thumbnail:
+        vid = media.video_id
+        if not vid:
+            match = re.search(r"(?:/v/|v=|embed/|shorts/)([A-Za-z0-9_-]{11})", normalized_url)
+            if match:
+                vid = match.group(1)
+                media.video_id = vid
+
+        thumb_candidates = []
+        if thumb_url:
+            thumb_candidates.append(thumb_url)
+        if vid:
+            thumb_candidates.extend([
+                f"https://i.ytimg.com/vi/{vid}/maxresdefault.jpg",
+                f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg",
+                f"https://i.ytimg.com/vi/{vid}/mqdefault.jpg",
+            ])
+
+        for t_url in thumb_candidates:
+            try:
+                headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+                resp = requests.get(t_url, headers=headers, timeout=15)
+                if resp.ok and len(resp.content) > 1000:
+                    ext = "jpg"
+                    ct = resp.headers.get("Content-Type", "")
+                    if "png" in ct:
+                        ext = "png"
+                    elif "webp" in ct:
+                        ext = "webp"
+                    from io import BytesIO
+                    media.thumbnail.save(f"{filename}.{ext}", File(BytesIO(resp.content)), save=False)
+                    media.save(update_fields=["thumbnail"])
+                    print(f"[OK] Thumbnail saved for: {media.media_url}")
+                    break
+            except Exception as te:
+                print(f"[WARN] Thumbnail download failed for {t_url}: {te}")
+
+    if media.duration_seconds and media.duration_seconds < MIN_DURATION_SECONDS:
+        print(f"[SKIP] Under {MIN_DURATION_SECONDS}s ({media.duration_seconds}s): {media.media_url}")
         return
-    if media.duration_seconds < MIN_DURATION_SECONDS:
-        print(f"[SKIP] Under 2 minutes ({media.duration_seconds}s < {MIN_DURATION_SECONDS}s): {media.media_url}")
-        return
-    if media.duration_seconds >= MAX_DURATION_SECONDS:
-        print(f"[SKIP] 10 minutes or over ({media.duration_seconds}s >= {MAX_DURATION_SECONDS}s): {media.media_url}")
+    if media.duration_seconds and media.duration_seconds >= MAX_DURATION_SECONDS:
+        print(f"[SKIP] Over {MAX_DURATION_SECONDS}s ({media.duration_seconds}s): {media.media_url}")
         return
 
     # Download into a temp dir so MEDIA_ROOT stays clean and the FileField
