@@ -45,7 +45,7 @@ def get_ytdlp_command():
         "--force-ipv4",
         "--no-check-certificates",
         "--geo-bypass",
-        "--extractor-args", "youtube:player_client=android,web;player_skip=webpage,configs",
+        "--extractor-args", "youtube:player_client=android,ios,web",
         "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     ]
     if ffmpeg_path and os.path.exists(ffmpeg_path):
@@ -497,26 +497,34 @@ def _process_media(media):
     command_prefix = get_ytdlp_command()
     normalized_url = normalize_youtube_url(media.media_url)
 
-    # Fetch metadata once — duration + thumbnail URL in one call.
-    duration = None
-    thumb_url = None
-    title = ''
-    video_id = ''
+    info = {}
     try:
         cmd = command_prefix + ["--skip-download", "--dump-single-json", "--no-playlist", normalized_url]
         result = subprocess.run(cmd, check=True, capture_output=True, text=True)
         info = json.loads(result.stdout or "{}")
-        duration = info.get("duration")
-        thumb_url = info.get("thumbnail")
-        title = info.get("title", '')
-        video_id = info.get("id", '')
-        if not thumb_url:
-            for t in info.get("thumbnails", []):
-                if t.get("url"):
-                    thumb_url = t["url"]
-                    break
     except Exception as e:
-        print(f"[ERROR] Metadata fetch failed for {normalized_url}: {e}")
+        print(f"[WARN] Primary metadata fetch failed for {normalized_url}: {e}, trying fallback...")
+        try:
+            fallback_meta = [
+                sys.executable, "-m", "yt_dlp",
+                "--force-ipv4", "--no-check-certificates",
+                "--skip-download", "--dump-single-json", "--no-playlist",
+                normalized_url
+            ]
+            res2 = subprocess.run(fallback_meta, check=True, capture_output=True, text=True)
+            info = json.loads(res2.stdout or "{}")
+        except Exception as e2:
+            print(f"[ERROR] All metadata fetch attempts failed for {normalized_url}: {e2}")
+
+    duration = info.get("duration")
+    thumb_url = info.get("thumbnail")
+    title = info.get("title", '')
+    video_id = info.get("id", '')
+    if not thumb_url:
+        for t in info.get("thumbnails", []):
+            if t.get("url"):
+                thumb_url = t["url"]
+                break
 
     media.duration_seconds = int(duration) if duration else None
     if title:
@@ -599,7 +607,11 @@ def _process_media(media):
             if err.stderr:
                 print(f"[WARN] stderr: {err.stderr[-1000:]}")
             # Fallback attempt: bestaudio with loose format constraints
-            fallback_cmd = command_prefix + [
+            ffmpeg_path = shutil.which("ffmpeg")
+            fallback_cmd = [
+                sys.executable, "-m", "yt_dlp",
+                "--force-ipv4",
+                "--no-check-certificates",
                 "-f", "bestaudio/best",
                 "-x",
                 "--audio-format", "mp3",
@@ -607,6 +619,8 @@ def _process_media(media):
                 "--output", output_template,
                 normalized_url,
             ]
+            if ffmpeg_path and os.path.exists(ffmpeg_path):
+                fallback_cmd += ["--ffmpeg-location", ffmpeg_path]
             try:
                 subprocess.run(fallback_cmd, check=True, capture_output=True, text=True)
             except Exception as fe:
