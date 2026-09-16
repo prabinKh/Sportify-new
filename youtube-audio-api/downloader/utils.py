@@ -28,8 +28,50 @@ RSS_NS = {
 }
 
 
+def _find_cookies_file():
+    """Return path to a valid cookies.txt file, or None.
+
+    Search order:
+      1. DownloaderSetting model (cookies_file field or cookies_text)
+      2. /app/database/cookies.txt  (Docker volume mount)
+      3. /app/cookies.txt           (Docker build-time copy)
+    """
+    # 1. Check the database model first
+    try:
+        from .models import DownloaderSetting
+        setting = DownloaderSetting.objects.first()
+        if setting:
+            # cookies_file is a FileField
+            if setting.cookies_file and hasattr(setting.cookies_file, 'path'):
+                try:
+                    path = setting.cookies_file.path
+                    if os.path.exists(path):
+                        return path
+                except Exception:
+                    pass
+            # cookies_text: write to a stable tmp location so we don't create a new file each call
+            if setting.cookies_text and setting.cookies_text.strip():
+                tmp_path = "/tmp/yt_cookies_db.txt"
+                with open(tmp_path, "w") as f:
+                    f.write(setting.cookies_text)
+                return tmp_path
+    except Exception:
+        pass  # DB not ready yet (e.g. during migrations)
+
+    # 2 & 3. Check well-known paths
+    for candidate in ["/app/database/cookies.txt", "/app/cookies.txt"]:
+        if os.path.exists(candidate):
+            return candidate
+
+    return None
+
+
 def get_ytdlp_command():
-    """Build a yt-dlp command that works reliably on both local and server environments."""
+    """Build a yt-dlp command that works reliably on both local and server environments.
+
+    Automatically includes --cookies <path> when a cookies.txt file is found, which
+    is required to bypass YouTube's bot-detection on datacenter / VPS IP addresses.
+    """
     ffmpeg_path = shutil.which("ffmpeg")
     if not ffmpeg_path:
         try:
@@ -40,14 +82,24 @@ def get_ytdlp_command():
         except Exception:
             ffmpeg_path = None
 
+    # visionos + mweb clients bypass bot-detection better on datacenter IPs;
+    # fall back to android/ios/web if those fail.
     command = [
         sys.executable, "-m", "yt_dlp",
         "--force-ipv4",
         "--no-check-certificates",
         "--geo-bypass",
-        "--extractor-args", "youtube:player_client=android,ios,web",
+        "--extractor-args", "youtube:player_client=visionos,mweb,android,ios,web",
         "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "--sleep-requests", "1",   # 1-second pause between requests to reduce 429 errors
     ]
+
+    # Inject cookies file when available (required for datacenter VPS downloads)
+    cookies_path = _find_cookies_file()
+    if cookies_path:
+        command += ["--cookies", cookies_path]
+        print(f"[COOKIES] Using cookies file: {cookies_path}")
+
     if ffmpeg_path and os.path.exists(ffmpeg_path):
         command += ["--ffmpeg-location", ffmpeg_path]
     return command
@@ -509,8 +561,11 @@ def _process_media(media):
                 sys.executable, "-m", "yt_dlp",
                 "--force-ipv4", "--no-check-certificates",
                 "--skip-download", "--dump-single-json", "--no-playlist",
-                normalized_url
             ]
+            _cookies = _find_cookies_file()
+            if _cookies:
+                fallback_meta += ["--cookies", _cookies]
+            fallback_meta += [normalized_url]
             res2 = subprocess.run(fallback_meta, check=True, capture_output=True, text=True)
             info = json.loads(res2.stdout or "{}")
         except Exception as e2:
@@ -612,13 +667,17 @@ def _process_media(media):
                 sys.executable, "-m", "yt_dlp",
                 "--force-ipv4",
                 "--no-check-certificates",
+                "--extractor-args", "youtube:player_client=visionos,mweb,android,ios,web",
                 "-f", "bestaudio/best",
                 "-x",
                 "--audio-format", "mp3",
                 "--no-playlist",
                 "--output", output_template,
-                normalized_url,
             ]
+            _cookies2 = _find_cookies_file()
+            if _cookies2:
+                fallback_cmd += ["--cookies", _cookies2]
+            fallback_cmd += [normalized_url]
             if ffmpeg_path and os.path.exists(ffmpeg_path):
                 fallback_cmd += ["--ffmpeg-location", ffmpeg_path]
             try:

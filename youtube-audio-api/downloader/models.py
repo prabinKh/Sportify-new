@@ -86,6 +86,20 @@ class FollowedArtist(models.Model):
         return f"Followed ({self.user}): {self.channel.name}"
 
 
+class DownloaderSetting(models.Model):
+    """Configuration for YouTube downloader, including cookies to bypass bot detection on VPS."""
+    cookies_file = models.FileField(upload_to='cookies/', null=True, blank=True, help_text="Upload your YouTube cookies.txt file to bypass YouTube datacenter bot detection")
+    cookies_text = models.TextField(blank=True, default='', help_text="Or paste your cookies.txt content directly here")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "YouTube Cookie / Downloader Setting"
+        verbose_name_plural = "YouTube Cookie / Downloader Settings"
+
+    def __str__(self):
+        return f"YouTube Downloader Settings (Updated: {self.updated_at.strftime('%Y-%m-%d %H:%M')})"
+
+
 
 from django.db.models.signals import post_save
 from django.dispatch import receiver
