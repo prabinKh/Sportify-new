@@ -285,10 +285,27 @@ Open `http://127.0.0.1:3000` in your browser.
 
 #### Environment Variables (`.env`)
 
+Create a `.env` file in the root directory (or copy from `.env.dist`):
+
+```bash
+cp .env.dist .env
+```
+
+| Variable | Default Value | Description |
+| :--- | :--- | :--- |
+| `VITE_API_BASE_URL` | `http://127.0.0.1:8000` | Django Backend API address. Set to your local server, LAN IP, or production backend domain. |
+| `LOCAL_IP` | `127.0.0.1` | Local machine IP address (auto-detected when running `./start_lan.sh`). |
+| `VITE_LOCAL_IP` | `127.0.0.1` | Local IP exposed to Vite frontend runtime. |
+| `VITE_SPOTIFY_REDIRECT_URL` | `http://127.0.0.1:3000` | Spotify OAuth redirect URI (dynamically uses browser origin if unconfigured). |
+| `VITE_SPOTIFY_CLIENT_ID` | *(Optional)* | Spotify Developer Client ID (required only for Spotify Web Playback SDK login). |
+
+Example `.env` for local development:
 ```env
-# Optional: Only needed if using Spotify OAuth
-VITE_SPOTIFY_CLIENT_ID=your_spotify_client_id_here
+VITE_API_BASE_URL=http://127.0.0.1:8000
 VITE_SPOTIFY_REDIRECT_URL=http://127.0.0.1:3000
+LOCAL_IP=127.0.0.1
+VITE_LOCAL_IP=127.0.0.1
+VITE_SPOTIFY_CLIENT_ID=your_client_id_here
 ```
 
 ---
