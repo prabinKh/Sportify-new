@@ -66,6 +66,64 @@ def _find_cookies_file():
     return None
 
 
+def _get_ytdlp_opts(extra_opts=None):
+    """Return standard yt-dlp Python API configuration options."""
+    opts = {
+        'force_ipv4': True,
+        'nocheckcertificate': True,
+        'geo_bypass': True,
+        'quiet': True,
+        'no_warnings': True,
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'extractor_args': {'youtube': {'player_client': ['visionos', 'mweb', 'android', 'ios', 'web']}},
+    }
+    cookies_path = _find_cookies_file()
+    if cookies_path:
+        opts['cookiefile'] = cookies_path
+    if extra_opts:
+        opts.update(extra_opts)
+    return opts
+
+
+def _fetch_info_inprocess(url, flat=False):
+    """Fetch video or channel metadata using in-process yt-dlp Python API."""
+    import yt_dlp
+    opts = _get_ytdlp_opts({'extract_flat': flat, 'skip_download': True})
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        return ydl.extract_info(url, download=False)
+
+
+def _download_audio_inprocess(url, output_template):
+    """Download audio using in-process yt-dlp Python API to bypass subprocess Windows AppLocker policy blocks."""
+    import yt_dlp
+    ffmpeg_path = shutil.which("ffmpeg")
+    if not ffmpeg_path:
+        try:
+            import imageio_ffmpeg
+            candidate = imageio_ffmpeg.get_ffmpeg_exe()
+            if candidate and os.path.exists(candidate):
+                ffmpeg_path = candidate
+        except Exception:
+            ffmpeg_path = None
+
+    opts = _get_ytdlp_opts({
+        'format': 'bestaudio/best',
+        'outtmpl': output_template,
+        'noplaylist': True,
+    })
+
+    if ffmpeg_path and os.path.exists(ffmpeg_path):
+        opts['ffmpeg_location'] = ffmpeg_path
+        opts['postprocessors'] = [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '0',
+        }]
+
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        ydl.download([url])
+
+
 def get_ytdlp_command():
     """Build a yt-dlp command that works reliably on both local and server environments.
 
@@ -555,23 +613,13 @@ def _process_media(media):
 
     info = {}
     try:
-        cmd = command_prefix + ["--skip-download", "--dump-single-json", "--no-playlist", normalized_url]
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
-        info = json.loads(result.stdout or "{}")
+        info = _fetch_info_inprocess(normalized_url)
     except Exception as e:
-        print(f"[WARN] Primary metadata fetch failed for {normalized_url}: {e}, trying fallback...")
+        print(f"[WARN] In-process metadata fetch failed for {normalized_url}: {e}, trying fallback...")
         try:
-            fallback_meta = [
-                sys.executable, "-m", "yt_dlp",
-                "--force-ipv4", "--no-check-certificates",
-                "--skip-download", "--dump-single-json", "--no-playlist",
-            ]
-            _cookies = _find_cookies_file()
-            if _cookies:
-                fallback_meta += ["--cookies", _cookies]
-            fallback_meta += [normalized_url]
-            res2 = subprocess.run(fallback_meta, check=True, capture_output=True, text=True)
-            info = json.loads(res2.stdout or "{}")
+            cmd = command_prefix + ["--skip-download", "--dump-single-json", "--no-playlist", normalized_url]
+            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+            info = json.loads(result.stdout or "{}")
         except Exception as e2:
             print(f"[ERROR] All metadata fetch attempts failed for {normalized_url}: {e2}")
 
@@ -656,44 +704,18 @@ def _process_media(media):
         output_template = os.path.join(temp_dir, f"{filename}.%(ext)s")
         downloaded_path = os.path.join(temp_dir, f"{filename}.mp3")
 
-        command = command_prefix + [
-            "-x",
-            "--audio-format", "mp3",
-            "--audio-quality", "0",
-            "--no-playlist",
-            "--output", output_template,
-            normalized_url,
-        ]
-
         try:
-            subprocess.run(command, check=True, capture_output=True, text=True)
-        except subprocess.CalledProcessError as err:
-            print(f"[WARN] yt-dlp mp3 extraction error for {normalized_url}: {err}")
-            if err.stderr:
-                print(f"[WARN] stderr: {err.stderr[-1000:]}")
-            # Fallback attempt: bestaudio with loose format constraints
-            ffmpeg_path = shutil.which("ffmpeg")
-            fallback_cmd = [
-                sys.executable, "-m", "yt_dlp",
-                "--force-ipv4",
-                "--no-check-certificates",
-                "--extractor-args", "youtube:player_client=visionos,mweb,android,ios,web",
-                "-f", "bestaudio/best",
-                "-x",
-                "--audio-format", "mp3",
-                "--no-playlist",
-                "--output", output_template,
-            ]
-            _cookies2 = _find_cookies_file()
-            if _cookies2:
-                fallback_cmd += ["--cookies", _cookies2]
-            fallback_cmd += [normalized_url]
-            if ffmpeg_path and os.path.exists(ffmpeg_path):
-                fallback_cmd += ["--ffmpeg-location", ffmpeg_path]
+            _download_audio_inprocess(normalized_url, output_template)
+        except Exception as err:
+            print(f"[WARN] In-process yt-dlp audio download error for {normalized_url}: {err}, trying subprocess fallback...")
             try:
-                subprocess.run(fallback_cmd, check=True, capture_output=True, text=True)
+                command = command_prefix + [
+                    "-x", "--audio-format", "mp3", "--audio-quality", "0",
+                    "--no-playlist", "--output", output_template, normalized_url,
+                ]
+                subprocess.run(command, check=True, capture_output=True, text=True)
             except Exception as fe:
-                print(f"[ERROR] yt-dlp fallback download also failed for {normalized_url}: {fe}")
+                print(f"[ERROR] Subprocess fallback download also failed for {normalized_url}: {fe}")
 
         actual_file = None
         if os.path.exists(downloaded_path):
