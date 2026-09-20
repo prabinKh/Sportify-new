@@ -59,7 +59,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=min
           build-args: |
             VITE_SPOTIFY_CLIENT_ID=${{ vars.VITE_SPOTIFY_CLIENT_ID || secrets.VITE_SPOTIFY_CLIENT_ID }}
             VITE_SPOTIFY_REDIRECT_URL=${{ vars.VITE_SPOTIFY_REDIRECT_URL || secrets.VITE_SPOTIFY_REDIRECT_URL }}
@@ -110,7 +110,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=min
 
   deploy:
     name: Deploy over SSH
