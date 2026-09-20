@@ -1,24 +1,32 @@
-asgiref==3.8.1
-beautifulsoup4==4.13.3
-certifi==2025.1.31
-charset-normalizer==3.4.1
+# Django Core & REST Framework
 Django==5.2
-django-background-tasks==1.2.8
-django-cors-headers==4.7.0
 djangorestframework==3.16.0
+django-cors-headers==4.7.0
+django-background-tasks==1.2.8
+drf-spectacular==0.30.0
+
+# ASGI / WebSockets / Static Files / Server
+asgiref==3.12.1
+channels==4.3.2
+daphne==4.2.3
 gunicorn==23.0.0
-idna==3.10
-packaging==24.2
-requests==2.32.3
-six==1.17.0
-soupsieve==2.6
-sqlparse==0.5.3
+whitenoise>=6.6.0
+
+# Audio & Media Extraction
+yt-dlp==2026.8.19
 imageio-ffmpeg==0.6.0
 Pillow==12.3.0
-typing_extensions==4.13.1
+beautifulsoup4==4.13.3
+soupsieve==2.6
+
+# HTTP & Utilities
+requests==2.32.3
 urllib3==2.3.0
-yt-dlp==2026.8.19
-channels
-daphne
-drf-spectacular>=0.27.0
-whitenoise>=6.6.0
+certifi==2025.1.31
+charset-normalizer==3.4.1
+idna==3.10
+packaging==24.2
+PyYAML==6.0.3
+six==1.17.0
+sqlparse==0.5.3
+typing_extensions==4.16.0
