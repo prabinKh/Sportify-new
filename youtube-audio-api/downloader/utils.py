@@ -82,10 +82,14 @@ def get_ytdlp_command():
         except Exception:
             ffmpeg_path = None
 
-    # visionos + mweb clients bypass bot-detection better on datacenter IPs;
-    # fall back to android/ios/web if those fail.
-    command = [
-        sys.executable, "-m", "yt_dlp",
+    ytdlp_bin = shutil.which("yt-dlp")
+    if ytdlp_bin:
+        base_cmd = [ytdlp_bin]
+    else:
+        base_cmd = [sys.executable, "-m", "yt_dlp"]
+
+    # visionos + mweb + android + ios + web clients bypass bot-detection better on datacenter IPs
+    command = base_cmd + [
         "--force-ipv4",
         "--no-check-certificates",
         "--geo-bypass",

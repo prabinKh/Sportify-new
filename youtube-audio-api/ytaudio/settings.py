@@ -223,27 +223,23 @@ LOGOUT_REDIRECT_URL = 'login'
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
-# Allow any local network IP origin matching 192.168.*.* or 10.*.*.*
+# Allow any local network IP origin matching 192.168.*.*, 10.*.*.*, or 172.16-31.*.*
 CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^http://127\.0\.0\.1:\d+$",
-    r"^http://localhost:\d+$",
-    r"^http://192\.168\.\d+\.\d+(:\d+)?$",
-    r"^http://10\.\d+\.\d+\.\d+(:\d+)?$",
+    r"^https?://127\.0\.0\.1(:\d+)?$",
+    r"^https?://localhost(:\d+)?$",
+    r"^https?://192\.168\.\d+\.\d+(:\d+)?$",
+    r"^https?://10\.\d+\.\d+\.\d+(:\d+)?$",
+    r"^https?://172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+(:\d+)?$",
 ]
 
 CORS_ALLOWED_ORIGINS = [
-    'http://127.0.0.1:3000',
-    'http://localhost:3000',
-    'http://127.0.0.1:3004',
-    'http://localhost:3004',
-    'http://127.0.0.1:5173',
-    'http://localhost:5173',
+    'http://127.0.0.1:3000', 'https://127.0.0.1:3000',
+    'http://localhost:3000', 'https://localhost:3000',
+    'http://127.0.0.1:3004', 'https://127.0.0.1:3004',
+    'http://localhost:3004', 'https://localhost:3004',
+    'http://127.0.0.1:5173', 'https://127.0.0.1:5173',
+    'http://localhost:5173', 'https://localhost:5173',
 ]
-if LOCAL_IP and LOCAL_IP not in ('127.0.0.1', 'localhost'):
-    for port in ('3000', '3004', '5173', '8000', '8004'):
-        url = f'http://{LOCAL_IP}:{port}'
-        if url not in CORS_ALLOWED_ORIGINS:
-            CORS_ALLOWED_ORIGINS.append(url)
 
 # Session and CSRF cookie settings (unique names prevent clash with other apps like algoflow on 144.91.72.44)
 SESSION_COOKIE_NAME = 'sportify_sessionid'
@@ -258,37 +254,42 @@ SESSION_COOKIE_AGE = 2592000  # 30 days session validity
 
 # CSRF trusted origins
 CSRF_TRUSTED_ORIGINS = [
-    'http://127.0.0.1:3000',
-    'http://localhost:3000',
-    'http://127.0.0.1:3004',
-    'http://localhost:3004',
-    'http://127.0.0.1:8000',
-    'http://localhost:8000',
-    'http://127.0.0.1:8004',
-    'http://localhost:8004',
-    'http://127.0.0.1:5173',
-    'http://localhost:5173',
+    'http://127.0.0.1:3000', 'https://127.0.0.1:3000',
+    'http://localhost:3000', 'https://localhost:3000',
+    'http://127.0.0.1:3004', 'https://127.0.0.1:3004',
+    'http://localhost:3004', 'https://localhost:3004',
+    'http://127.0.0.1:8000', 'https://127.0.0.1:8000',
+    'http://localhost:8000', 'https://localhost:8000',
+    'http://127.0.0.1:8004', 'https://127.0.0.1:8004',
+    'http://localhost:8004', 'https://localhost:8004',
+    'http://127.0.0.1:5173', 'https://127.0.0.1:5173',
+    'http://localhost:5173', 'https://localhost:5173',
     'https://*.devtunnels.ms',
     'http://*.devtunnels.ms',
-    'http://144.91.72.44',
-    'http://144.91.72.44:8004',
-    'http://144.91.72.44:3004',
-    'http://144.91.72.44:8000',
-    'http://144.91.72.44:3000',
-    'https://144.91.72.44',
-    'https://144.91.72.44:8004',
-    'https://144.91.72.44:3004',
+    'http://144.91.72.44', 'http://144.91.72.44:8004', 'http://144.91.72.44:3004', 'http://144.91.72.44:8000', 'http://144.91.72.44:3000',
+    'https://144.91.72.44', 'https://144.91.72.44:8004', 'https://144.91.72.44:3004',
 ]
 
-hosts_to_trust = [h for h in [
-    LOCAL_IP,
-    os.getenv('SERVER_HOST'),
-    os.getenv('HOST'),
-    os.getenv('SSH_HOST'),
-] if h and h not in ('127.0.0.1', 'localhost', '144.91.72.44')]
+# Dynamically add system local network IPs (e.g., WiFi, Ethernet) and configured hosts
+try:
+    import socket
+    local_system_ips = socket.gethostbyname_ex(socket.gethostname())[2]
+except Exception:
+    local_system_ips = []
+
+hosts_to_trust = set(local_system_ips)
+if LOCAL_IP:
+    hosts_to_trust.add(LOCAL_IP)
+
+for env_var in ('SERVER_HOST', 'HOST', 'SSH_HOST', 'PUBLIC_IP', 'DEPLOYED_IP'):
+    val = os.getenv(env_var)
+    if val:
+        hosts_to_trust.add(val)
 
 for h in hosts_to_trust:
-    for port in ('3000', '3004', '5173', '8000', '8004'):
+    if not h or h in ('127.0.0.1', 'localhost'):
+        continue
+    for port in ('3000', '3001', '3004', '5173', '8000', '8001', '8004'):
         for proto in ('http', 'https'):
             origin = f'{proto}://{h}:{port}'
             if origin not in CSRF_TRUSTED_ORIGINS:

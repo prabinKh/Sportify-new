@@ -5,27 +5,37 @@ import { cacheGet, cacheSet } from './utils/cache';
 
 const resolveApiBaseUrl = (): string => {
   const envUrl = (import.meta.env.VITE_API_BASE_URL as string)?.trim();
-  if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
-    return /^https?:\/\//i.test(envUrl) ? envUrl : `http://${envUrl}`;
-  }
 
-  // If running in a browser, dynamically match the host and port
+  // If running in browser, dynamically determine API base URL based on browser's location
   if (typeof window !== 'undefined' && window.location.hostname) {
     const browserHost = window.location.hostname;
     const protocol = window.location.protocol;
     const port = window.location.port;
 
-    // Production VPS host port 3004 -> maps to backend API port 8004
+    // Check if envUrl is a remote URL (not localhost or local IP)
+    const isEnvUrlRemote =
+      envUrl &&
+      /^https?:\/\//i.test(envUrl) &&
+      !envUrl.includes('localhost') &&
+      !envUrl.includes('127.0.0.1') &&
+      !/^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2\d|3[0-1]))/.test(envUrl);
+
+    if (isEnvUrlRemote) {
+      return envUrl;
+    }
+
+    // Dynamic port mapping based on how frontend is accessed:
+    // Port 3004 -> Backend on 8004 (Docker / VPS production)
     if (port === '3004') {
       return `${protocol}//${browserHost}:8004`;
     }
 
-    // Support port 3001 -> 8001
+    // Port 3001 -> Backend on 8001
     if (port === '3001') {
       return `${protocol}//${browserHost}:8001`;
     }
 
-    // Local dev on port 3000 or 5173 -> maps to backend port 8000
+    // Port 3000 or 5173 -> Backend on 8000 (Vite dev server)
     if (port === '3000' || port === '5173') {
       return `${protocol}//${browserHost}:8000`;
     }
@@ -41,7 +51,7 @@ const resolveApiBaseUrl = (): string => {
       return `${protocol}//${browserHost}:8000`;
     }
 
-    // Default for VPS IP or custom domain
+    // Deployed public IP / domain with standard HTTP(S) port or custom port
     return `${protocol}//${browserHost}:8004`;
   }
 

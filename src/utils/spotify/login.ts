@@ -3,11 +3,18 @@ import { getFromLocalStorageWithExpiry, setLocalStorageWithExpiry } from '../loc
 import axios from 'axios';
 
 /* eslint-disable import/no-anonymous-default-export */
-const client_id = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
-const rawRedirect =
-  (import.meta.env.VITE_SPOTIFY_REDIRECT_URL as string)?.trim() ||
-  (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
-const redirect_uri = /^https?:\/\//i.test(rawRedirect) ? rawRedirect : `http://${rawRedirect}`;
+const getRedirectUri = (): string => {
+  const envRedirect = (import.meta.env.VITE_SPOTIFY_REDIRECT_URL as string)?.trim();
+  if (typeof window !== 'undefined' && window.location.origin) {
+    if (envRedirect && !envRedirect.includes('localhost') && !envRedirect.includes('127.0.0.1')) {
+      return /^https?:\/\//i.test(envRedirect) ? envRedirect : `http://${envRedirect}`;
+    }
+    return window.location.origin.endsWith('/') ? window.location.origin : `${window.location.origin}/`;
+  }
+  return envRedirect || 'http://localhost:3000/';
+};
+
+const redirect_uri = getRedirectUri();
 
 const authUrl = new URL('https://accounts.spotify.com/authorize');
 

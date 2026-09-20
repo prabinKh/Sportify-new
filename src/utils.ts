@@ -31,9 +31,17 @@ export const normalizeMediaUrl = (url?: string, defaultFallback = ''): string =>
   if (url.startsWith('/')) {
     return `${baseUrl}${url}`;
   }
+
+  // Extract relative /media/ or /static/ path if present in full URL from Django
+  if (/\/(media|static)\//i.test(url)) {
+    const relativePath = url.substring(url.search(/\/(media|static)\//i));
+    return `${baseUrl}${relativePath}`;
+  }
+
   if (/^https?:\/\/[^/]+:(8000|8001|8004)/i.test(url)) {
     return url.replace(/^https?:\/\/[^/]+:(8000|8001|8004)/i, baseUrl);
   }
+
   return url;
 };
 
