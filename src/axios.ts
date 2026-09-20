@@ -12,6 +12,15 @@ const resolveApiBaseUrl = (): string => {
     const protocol = window.location.protocol;
     const port = window.location.port;
 
+    // Port 3000 or 5173 -> Backend on 8000 (Vite dev server)
+    if (port === '3000' || port === '5173') {
+      const isLocalHost = browserHost === 'localhost' || browserHost === '127.0.0.1';
+      if (isLocalHost) {
+        return 'http://127.0.0.1:8000';
+      }
+      return `${protocol}//${browserHost}:8000`;
+    }
+
     // Check if envUrl is a remote URL (not localhost or local IP)
     const isEnvUrlRemote =
       envUrl &&
@@ -33,11 +42,6 @@ const resolveApiBaseUrl = (): string => {
     // Port 3001 -> Backend on 8001
     if (port === '3001') {
       return `${protocol}//${browserHost}:8001`;
-    }
-
-    // Port 3000 or 5173 -> Backend on 8000 (Vite dev server)
-    if (port === '3000' || port === '5173') {
-      return `${protocol}//${browserHost}:8000`;
     }
 
     const isLocalOrLan =
@@ -64,7 +68,7 @@ const resolveApiBaseUrl = (): string => {
     return /^https?:\/\//i.test(localIp) ? localIp : `http://${localIp}:8000`;
   }
 
-  return 'http://localhost:8000';
+  return 'http://127.0.0.1:8000';
 };
 
 export const API_BASE_URL = resolveApiBaseUrl().replace(/\/+$/, '');
