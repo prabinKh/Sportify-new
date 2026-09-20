@@ -3,8 +3,20 @@ from django.urls import path, include, re_path
 from django.conf import settings
 from django.views.static import serve
 
+from drf_spectacular.views import (
+    SpectacularAPIView,
+    SpectacularRedocView,
+    SpectacularSwaggerView,
+)
+
 urlpatterns = [
     path('admin/', admin.site.urls),
+    # OpenAPI 3 Schema & Swagger / ReDoc Documentation
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('api/swagger/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui-alias'),
+    path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+
     path('api/accounts/', include('accounts.urls')),
     path('api/rooms/', include('rooms.urls')),
     path('api/social/', include('social.urls')),

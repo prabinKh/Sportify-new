@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'corsheaders',
     'background_task',
+    'drf_spectacular',
 
     'downloader',
     'accounts',
@@ -210,7 +211,16 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.AllowAny',
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 10
+    'PAGE_SIZE': 10,
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Sportify REST API Documentation',
+    'DESCRIPTION': 'OpenAPI 3.0 interactive Swagger UI for Sportify playback, rooms, social chat, and audio downloads.',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
 }
 
 # Login URL settings

@@ -339,9 +339,18 @@ VITE_SPOTIFY_CLIENT_ID=your_client_id_here
 
 ---
 
-## 🔌 API Architecture
+## 🔌 API Architecture & Swagger Documentation
+
+### 📚 Interactive Swagger UI & API Docs
+- **Swagger UI**: [`http://127.0.0.1:8000/api/docs/`](http://127.0.0.1:8000/api/docs/) (or [`/api/swagger/`](http://127.0.0.1:8000/api/swagger/))
+- **ReDoc Documentation**: [`http://127.0.0.1:8000/api/redoc/`](http://127.0.0.1:8000/api/redoc/)
+- **OpenAPI 3.0 Schema**: [`http://127.0.0.1:8000/api/schema/`](http://127.0.0.1:8000/api/schema/)
 
 | Endpoint | Method | Description |
+| :--- | :---: | :--- |
+| `/api/docs/` | `GET` | Interactive Swagger UI API Documentation |
+| `/api/redoc/` | `GET` | ReDoc API Documentation |
+| `/api/schema/` | `GET` | OpenAPI 3.0 JSON Schema |
 | :--- | :---: | :--- |
 | `/api/tracks/` | `GET` | List all cached audio tracks |
 | `/api/tracks/search/?q={query}` | `GET` | Search YouTube audio catalogue |
