@@ -28,8 +28,7 @@ export const Song = (props: SongProps) => {
       size='small'
       context={{ uris }}
       fields={[
-        SongViewComponents.ClickeableCover,
-        SongViewComponents.Title,
+        SongViewComponents.TitleWithCover,
         SongViewComponents.Album,
         () => (
           <div className='text-right' style={{ flex: 3, marginRight: 15 }}>

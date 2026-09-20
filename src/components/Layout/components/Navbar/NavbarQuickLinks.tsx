@@ -1,4 +1,5 @@
 import { FC, memo, useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FaListUl, FaMicrophone, FaUserCheck, FaUsers, FaCommentDots, FaRadio, FaChevronDown } from 'react-icons/fa6';
 import { Space } from 'antd';
@@ -12,6 +13,8 @@ export const NavbarQuickLinks: FC<NavbarQuickLinksProps> = memo(({ isMobile = fa
   const location = useLocation();
   const [socialOpen, setSocialOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; right: number } | null>(null);
 
   const isPlaylistsActive =
     location.pathname === '/playlist' || location.pathname === '/playlists';
@@ -29,10 +32,24 @@ export const NavbarQuickLinks: FC<NavbarQuickLinksProps> = memo(({ isMobile = fa
   const isRoomsActive = location.pathname.startsWith('/rooms');
   const isSocialActive = isFriendsActive || isMessagesActive || isRoomsActive;
 
-  // Close dropdown on outside click
+  // Calculate dropdown position when opening
+  useEffect(() => {
+    if (socialOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownPos({
+        top: rect.bottom + 8,
+        right: window.innerWidth - rect.right,
+      });
+    }
+  }, [socialOpen]);
+
+  // Close dropdown on outside click (check both button and floating dropdown)
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const insideButton = buttonRef.current?.contains(target);
+      const insideDropdown = dropdownRef.current?.contains(target);
+      if (!insideButton && !insideDropdown) {
         setSocialOpen(false);
       }
     };
@@ -141,8 +158,9 @@ export const NavbarQuickLinks: FC<NavbarQuickLinksProps> = memo(({ isMobile = fa
             ))}
           </>
         ) : (
-          <div ref={dropdownRef} style={{ position: 'relative' }}>
+          <div style={{ position: 'relative' }}>
             <button
+              ref={buttonRef}
               onClick={() => setSocialOpen((prev) => !prev)}
               style={{
                 display: 'inline-flex',
@@ -197,20 +215,21 @@ export const NavbarQuickLinks: FC<NavbarQuickLinksProps> = memo(({ isMobile = fa
               />
             </button>
 
-            {/* Dropdown menu */}
-            {socialOpen && (
+            {/* Dropdown menu — rendered as a portal to escape overflow:hidden parents */}
+            {socialOpen && dropdownPos && createPortal(
               <div
+                ref={dropdownRef}
                 style={{
-                  position: 'absolute',
-                  top: 'calc(100% + 8px)',
-                  right: 0,
+                  position: 'fixed',
+                  top: dropdownPos.top,
+                  right: dropdownPos.right,
                   minWidth: '200px',
                   padding: '6px',
                   borderRadius: '10px',
                   background: '#282828',
                   border: '1px solid rgba(255,255,255,0.08)',
                   boxShadow: '0 16px 32px rgba(0,0,0,0.5), 0 4px 12px rgba(0,0,0,0.3)',
-                  zIndex: 1500,
+                  zIndex: 99999,
                   animation: 'socialDropdownIn 0.15s ease-out',
                 }}
               >
@@ -275,7 +294,8 @@ export const NavbarQuickLinks: FC<NavbarQuickLinksProps> = memo(({ isMobile = fa
                     )}
                   </button>
                 ))}
-              </div>
+              </div>,
+              document.body
             )}
           </div>
         )}
