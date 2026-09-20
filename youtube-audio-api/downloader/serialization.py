@@ -69,10 +69,11 @@ class MediaFileSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if obj.thumbnail:
             return _absolute(request, obj.thumbnail)
-        # Fallback: use YouTube's CDN thumbnail via video_id
-        vid = obj.video_id or _extract_video_id(obj.media_url)
-        if vid:
-            return f'https://i.ytimg.com/vi/{vid}/mqdefault.jpg'
+        # Only fall back to YouTube CDN thumbnail if the track has a downloaded audio file
+        if obj.audio_file:
+            vid = obj.video_id or _extract_video_id(obj.media_url)
+            if vid:
+                return f'https://i.ytimg.com/vi/{vid}/mqdefault.jpg'
         return None
 
 
@@ -99,9 +100,11 @@ class ArtistAudioSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if obj.thumbnail:
             return _absolute(request, obj.thumbnail)
-        vid = obj.video_id or _extract_video_id(obj.media_url)
-        if vid:
-            return f'https://i.ytimg.com/vi/{vid}/mqdefault.jpg'
+        # Only fall back to YouTube CDN thumbnail if the track has a downloaded audio file
+        if obj.audio_file:
+            vid = obj.video_id or _extract_video_id(obj.media_url)
+            if vid:
+                return f'https://i.ytimg.com/vi/{vid}/mqdefault.jpg'
         return None
 
 
@@ -162,9 +165,11 @@ class LocalTrackSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if obj.thumbnail:
             return _absolute(request, obj.thumbnail)
-        vid = obj.video_id or _extract_video_id(obj.media_url)
-        if vid:
-            return f'https://i.ytimg.com/vi/{vid}/mqdefault.jpg'
+        # Only fall back to YouTube CDN thumbnail if the track has a downloaded audio file
+        if obj.audio_file:
+            vid = obj.video_id or _extract_video_id(obj.media_url)
+            if vid:
+                return f'https://i.ytimg.com/vi/{vid}/mqdefault.jpg'
         return None
 
     def get_artist_picture(self, obj):

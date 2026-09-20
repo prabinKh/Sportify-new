@@ -18,8 +18,8 @@ from django.utils.text import slugify
 
 from .models import YouTubeChannel, MediaFile, Playlist
 
-MIN_DURATION_SECONDS = 5        # Skip audio shorter than 5 seconds
-MAX_DURATION_SECONDS = 7200     # Allow audio up to 2 hours
+MIN_DURATION_SECONDS = 120      # Skip audio shorter than 2 minutes (120 seconds)
+MAX_DURATION_SECONDS = 600      # Skip audio longer than 10 minutes (600 seconds)
 
 RSS_NS = {
     "atom": "http://www.w3.org/2005/Atom",
@@ -581,20 +581,33 @@ def _process_media(media):
                 thumb_url = t["url"]
                 break
 
-    media.duration_seconds = int(duration) if duration else None
+    duration_int = int(duration) if duration else None
+
+    # --- Duration gate: delete the record if it is out of the allowed range ---
+    # Allowed range: MIN_DURATION_SECONDS (2 min / 120 s) to MAX_DURATION_SECONDS (10 min / 600 s)
+    if duration_int is not None:
+        if duration_int < MIN_DURATION_SECONDS:
+            print(f"[DELETE] Under {MIN_DURATION_SECONDS}s ({duration_int}s) – removing from DB: {media.media_url}")
+            media.delete()
+            return
+        if duration_int > MAX_DURATION_SECONDS:
+            print(f"[DELETE] Over {MAX_DURATION_SECONDS}s ({duration_int}s) – removing from DB: {media.media_url}")
+            media.delete()
+            return
+
+    media.duration_seconds = duration_int
     if title:
         media.title = title
     if video_id:
         media.video_id = video_id
     media.save()
 
-
     # Normalize media_url on existing record if it is in old /v/ format
     if normalized_url != media.media_url and not MediaFile.objects.filter(media_url=normalized_url).exclude(id=media.id).exists():
         media.media_url = normalized_url
         media.save(update_fields=["media_url"])
 
-    # Save the video thumbnail if we don't have one yet.
+    # Save the video thumbnail only for tracks that passed the duration gate.
     if not media.thumbnail:
         vid = media.video_id
         if not vid:
@@ -631,13 +644,6 @@ def _process_media(media):
                     break
             except Exception as te:
                 print(f"[WARN] Thumbnail download failed for {t_url}: {te}")
-
-    if media.duration_seconds and media.duration_seconds < MIN_DURATION_SECONDS:
-        print(f"[SKIP] Under {MIN_DURATION_SECONDS}s ({media.duration_seconds}s): {media.media_url}")
-        return
-    if media.duration_seconds and media.duration_seconds >= MAX_DURATION_SECONDS:
-        print(f"[SKIP] Over {MAX_DURATION_SECONDS}s ({media.duration_seconds}s): {media.media_url}")
-        return
 
     # Download into a temp dir so MEDIA_ROOT stays clean and the FileField
     # never has to rename around existing files.
